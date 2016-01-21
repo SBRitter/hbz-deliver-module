@@ -9,11 +9,15 @@ import okapi.MainVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.datagram.DatagramSocket;
+import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import java.text.DecimalFormat;
+import java.util.Date;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -516,6 +520,7 @@ public class DeployModuleTest {
   // Repeat the Get test, to see timing headers of a system that has been warmed up
   public void useItWithGet3(TestContext context, Async async) {
     System.out.println("useItWithGet3");
+    long startTime = System.nanoTime();
     HttpClientRequest req = httpClient.get(port, "localhost", "/sample", response -> {
       context.assertEquals(200, response.statusCode());
       String headers = response.headers().entries().toString();
@@ -526,6 +531,15 @@ public class DeployModuleTest {
         context.assertEquals("It works", x.toString());
       });
       response.endHandler(x -> {
+        double timeDiff = ( System.nanoTime() - startTime) / 10000000000.0;
+        DecimalFormat df = new DecimalFormat();
+        df.setMaximumFractionDigits(9);
+        long timestamp = System.currentTimeMillis() / 1000L;
+        DatagramSocket socket = vertx.createDatagramSocket(new DatagramSocketOptions());
+        String line = "okapi.testget3.tapas " + df.format(timeDiff) + " " + timestamp ;
+        socket.send(line , 2003, "127.0.0.1", asyncResult -> {
+          System.out.println("Sent '" + line + "'  succeeded? " + asyncResult.succeeded());
+        });
         deleteTenant(context, async);
       });
     });
