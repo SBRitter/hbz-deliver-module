@@ -1,0 +1,14 @@
+{
+  "id" : "hbz-dummy-module",
+  "name" : "hbz dummy module",
+  "provides" : [ {
+    "id" : "dummy",
+    "version" : "0.0.1"
+  } ],
+  "routingEntries" : [ {
+    "methods" : [ "GET", "POST" ],
+    "path" : "/dummy",
+    "level" : "30",
+    "type" : "request-response"
+  } ]
+}
