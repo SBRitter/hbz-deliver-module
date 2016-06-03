@@ -3,6 +3,8 @@ package hbz;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.json.Json;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -23,13 +25,16 @@ public class MainVerticle extends AbstractVerticle {
     Patron patron;
     Item item;
 
+    private final Logger logger = LoggerFactory.getLogger("hbz-deliver-module");
+
     @Override
     public void start(Future<Void> fut) {
         Router router = Router.router(vertx);
         final int port = Integer.parseInt(System.getProperty("port", "8080"));
 
-        router.route("/deliver/loan*").handler(BodyHandler.create());
+        router.route("/deliver*").handler(BodyHandler.create());
         router.post("/deliver/loan").handler(this::loan);
+        router.post("/deliver/return").handler(this::returnItem);
 
         vertx.createHttpServer().requestHandler(router::accept).listen(port, result -> {
             if (result.succeeded()) {
@@ -52,7 +57,7 @@ public class MainVerticle extends AbstractVerticle {
         httpClient.get(8081, "localhost", "/apis/patrons/" + patronId, response -> {
             response.bodyHandler(buffer -> {
                 patron = Json.decodeValue(buffer.toString(), Patron.class);
-                System.out.println("Found patron: " + patron.getPatronName());
+                logger.info("Found patron: " + patron.getPatronName());
                 retrieveItem(routingContext);
             });
         }).putHeader("content-type", "application/json").end();
@@ -63,7 +68,7 @@ public class MainVerticle extends AbstractVerticle {
         httpClient.get(8081, "localhost", "/apis/items/" + itemId, response -> {
             response.bodyHandler(buffer -> {
                 item = Json.decodeValue(buffer.toString(), Item.class);
-                System.out.println("Found item: " + item.getItemId());
+                logger.info("Found item: " + item.getItemId());
                 processLoan(routingContext);
             });
         }).putHeader("content-type", "application/json").end();
@@ -71,12 +76,12 @@ public class MainVerticle extends AbstractVerticle {
 
     private void processLoan(RoutingContext routingContext) {
         // 1. Create loan for patron
-        System.out.println("Processing loan");
+        logger.info("Processing loan");
         HttpClient httpClient = vertx.createHttpClient();
         Loan loan = createLoanObject();
         String loanAsJson = Json.encode(loan);
         httpClient.post(8081, "localhost", "/apis/patrons/" + patronId + "/loans/", response -> {
-            System.out.println("Received response with status code " + response.statusCode());
+            logger.info("Received response with status code " + response.statusCode());
         }).putHeader("content-type", "text/plain").putHeader("Accept", "application/json").end(loanAsJson);
 
         // 2. Update total loans
@@ -104,4 +109,16 @@ public class MainVerticle extends AbstractVerticle {
         return loan;
     }
 
+    private void returnItem(RoutingContext routingContext) {
+        final ItemReturn itemReturn = Json.decodeValue(routingContext.getBodyAsString(), ItemReturn.class);
+        patronId = itemReturn.getPatron();
+        String loanId = itemReturn.getLoan();
+        HttpClient httpClient = vertx.createHttpClient();
+        httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
+            logger.info("Received response with status code " + response.statusCode());
+            routingContext.response().setStatusCode(200)
+                    .putHeader("content-type", "application/json; charset=utf-8")
+                    .end("deleted " + loanId + " for " + patronId);
+        }).putHeader("content-type", "text/plain").end();
+    }
 }
