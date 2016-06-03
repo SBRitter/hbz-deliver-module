@@ -1,6 +1,6 @@
 {
-  "srvcId" : "hbz-dummy-module",
+  "srvcId" : "hbz-deliver-module",
   "descriptor" : {
-    "exec" : "java -Dport=%p -jar DummyModule/target/DummyModule-fat.jar"
+    "exec" : "java -Dport=%p -jar hbz-deliver-module/target/hbz-deliver-module-fat.jar"
    }
 }

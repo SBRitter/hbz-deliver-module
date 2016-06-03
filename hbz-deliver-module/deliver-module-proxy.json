@@ -1,13 +1,13 @@
 {
-  "id" : "hbz-dummy-module",
-  "name" : "hbz dummy module",
+  "id" : "hbz-deliver-module",
+  "name" : "hbz deliver module",
   "provides" : [ {
-    "id" : "dummy",
+    "id" : "deliver",
     "version" : "0.0.1"
   } ],
   "routingEntries" : [ {
     "methods" : [ "GET", "POST" ],
-    "path" : "/dummy",
+    "path" : "/deliver",
     "level" : "30",
     "type" : "request-response"
   } ]

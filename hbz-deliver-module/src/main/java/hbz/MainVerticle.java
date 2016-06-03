@@ -33,6 +33,7 @@ public class MainVerticle extends AbstractVerticle {
         final int port = Integer.parseInt(System.getProperty("port", "8080"));
 
         router.route("/deliver*").handler(BodyHandler.create());
+        router.get("/deliver").handler(this::sayHello);
         router.post("/deliver/loan").handler(this::loan);
         router.post("/deliver/return").handler(this::returnItem);
 
@@ -43,6 +44,11 @@ public class MainVerticle extends AbstractVerticle {
                 fut.fail(result.cause());
             }
         });
+    }
+    
+    private void sayHello(RoutingContext routingContext) {
+        routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
+        .end("hbz deliver module.");
     }
 
     private void loan(RoutingContext routingContext) {
