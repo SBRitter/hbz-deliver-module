@@ -17,6 +17,7 @@ import com.sling.rest.jaxrs.model.Library;
 import com.sling.rest.jaxrs.model.Loan;
 import com.sling.rest.jaxrs.model.LocationCode;
 import com.sling.rest.jaxrs.model.Patron;
+import com.sling.rest.jaxrs.model.Status;
 
 public class MainVerticle extends AbstractVerticle {
 
@@ -24,6 +25,7 @@ public class MainVerticle extends AbstractVerticle {
   String itemId;
   Patron patron;
   Item item;
+  String loanId;
 
   private final Logger logger = LoggerFactory.getLogger("hbz-deliver-module");
 
@@ -81,20 +83,34 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private void processLoan(RoutingContext routingContext) {
-    // 1. Create loan for patron
     logger.info("Processing loan");
+    createLoanForPatron();
+    updateItemStatus("02", "ITEM_STATUS_ON_LOAN");
+    routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
+        .end("loaned " + itemId + " to " + patronId);
+  }
+
+  private void createLoanForPatron() {
+    logger.info("Creating loan for patron");
     HttpClient httpClient = vertx.createHttpClient();
     Loan loan = createLoanObject();
     String loanAsJson = Json.encode(loan);
     httpClient.post(8081, "localhost", "/apis/patrons/" + patronId + "/loans/", response -> {
       logger.info("Received response with status code " + response.statusCode());
     }).putHeader("content-type", "text/plain").putHeader("Accept", "application/json").end(loanAsJson);
+  }
 
-    // 2. Update total loans
-    // 3. Update item status
-
-    routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
-        .end("loaned " + itemId + " to " + patronId);
+  private void updateItemStatus(String statusValue, String statusDescription) {
+    logger.info("Updating item status");
+    HttpClient httpClient = vertx.createHttpClient();
+    Status status = new Status();
+    status.setValue(statusValue);
+    status.setDesc(statusDescription);
+    item.setStatus(status);
+    String itemAsJson = Json.encode(item);
+    httpClient.put(8081, "localhost", "/apis/items/" + itemId, response -> {
+      logger.info("Received response with status code " + response.statusCode());
+    }).putHeader("content-type", "text/plain").putHeader("Accept", "application/json").end(itemAsJson);
   }
 
   private Loan createLoanObject() {
@@ -118,13 +134,26 @@ public class MainVerticle extends AbstractVerticle {
   private void returnItem(RoutingContext routingContext) {
     final ItemReturn itemReturn = Json.decodeValue(routingContext.getBodyAsString(), ItemReturn.class);
     patronId = itemReturn.getPatron();
-    String loanId = itemReturn.getLoan();
+    loanId = itemReturn.getLoan();
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
-      logger.info("Received response with status code " + response.statusCode());
-      routingContext.response().setStatusCode(200)
-          .putHeader("content-type", "application/json; charset=utf-8")
-          .end("deleted " + loanId + " for " + patronId);
+    httpClient.get(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {   
+      response.bodyHandler(buffer -> {
+        item = Json.decodeValue(buffer.toString(), Item.class);
+        itemId = item.getItemId();
+        updateItemStatus("01", "ITEM_STATUS_MISSING");
+      });
+      deleteLoanForPatron(routingContext);
     }).putHeader("content-type", "text/plain").end();
   }
+
+  private void deleteLoanForPatron(RoutingContext routingContext) {
+    HttpClient httpClient = vertx.createHttpClient();
+    httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response2 -> {
+      logger.info("Received response with status code " + response2.statusCode());
+      routingContext.response().setStatusCode(200)
+          .putHeader("content-type", "application/json; charset=utf-8")
+          .end("returned " + loanId + " for " + patronId);
+    }).putHeader("content-type", "text/plain").end();
+  }
+  
 }
