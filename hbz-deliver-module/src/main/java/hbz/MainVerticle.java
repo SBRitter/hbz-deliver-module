@@ -10,6 +10,13 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.core.http.HttpClient;
 
+import java.util.Arrays;
+
+import org.kie.api.KieServices;
+import org.kie.api.runtime.KieContainer;
+import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.StatelessKieSession;
+
 import com.sling.rest.jaxrs.model.CircDesk;
 import com.sling.rest.jaxrs.model.Item;
 import com.sling.rest.jaxrs.model.ItemPolicy;
@@ -27,6 +34,10 @@ public class MainVerticle extends AbstractVerticle {
   Item item;
   String loanId;
 
+  KieServices kieServices = KieServices.Factory.get();
+  KieContainer kContainer = kieServices.getKieClasspathContainer();
+  KieSession kSession = kContainer.newKieSession("ksession-rules");
+
   private final Logger logger = LoggerFactory.getLogger("hbz-deliver-module");
 
   @Override
@@ -35,7 +46,6 @@ public class MainVerticle extends AbstractVerticle {
     final int port = Integer.parseInt(System.getProperty("port", "8080"));
 
     router.route("/deliver*").handler(BodyHandler.create());
-    router.get("/deliver").handler(this::sayHello);
     router.post("/deliver/loan").handler(this::loan);
     router.post("/deliver/return").handler(this::returnItem);
 
@@ -46,11 +56,6 @@ public class MainVerticle extends AbstractVerticle {
         fut.fail(result.cause());
       }
     });
-  }
-
-  private void sayHello(RoutingContext routingContext) {
-    routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
-        .end("hbz deliver module.");
   }
 
   private void loan(RoutingContext routingContext) {
@@ -65,7 +70,7 @@ public class MainVerticle extends AbstractVerticle {
     httpClient.get(8081, "localhost", "/apis/patrons/" + patronId, response -> {
       response.bodyHandler(buffer -> {
         patron = Json.decodeValue(buffer.toString(), Patron.class);
-        logger.info("Found patron: " + patron.getPatronName());
+        logger.info("Found patron: " + patron.getPatronName() + " with id " + patronId);
         retrieveItem(routingContext);
       });
     }).putHeader("content-type", "application/json").end();
@@ -83,25 +88,24 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private void processLoan(RoutingContext routingContext) {
-    logger.info("Processing loan");
-    createLoanForPatron();
-    updateItemStatus("02", "ITEM_STATUS_ON_LOAN");
-    routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
-        .end("loaned " + itemId + " to " + patronId);
+    logger.info("Processing loan...");
+    kSession.insert(new Object[] { patron, item });
+    kSession.fireAllRules();
+    createLoanForPatron(routingContext);
   }
 
-  private void createLoanForPatron() {
-    logger.info("Creating loan for patron");
+  private void createLoanForPatron(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
     Loan loan = createLoanObject();
     String loanAsJson = Json.encode(loan);
     httpClient.post(8081, "localhost", "/apis/patrons/" + patronId + "/loans/", response -> {
-      logger.info("Received response with status code " + response.statusCode());
+      logger.info("Created loan for patron " + patronId);
+      updateItemStatus(item.getItemId(), "02", "ITEM_STATUS_ON_LOAN", routingContext);
     }).putHeader("content-type", "text/plain").putHeader("Accept", "application/json").end(loanAsJson);
   }
 
-  private void updateItemStatus(String statusValue, String statusDescription) {
-    logger.info("Updating item status");
+  private void updateItemStatus(String itemId, String statusValue, String statusDescription,
+      RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
     Status status = new Status();
     status.setValue(statusValue);
@@ -109,7 +113,9 @@ public class MainVerticle extends AbstractVerticle {
     item.setStatus(status);
     String itemAsJson = Json.encode(item);
     httpClient.put(8081, "localhost", "/apis/items/" + itemId, response -> {
-      logger.info("Received response with status code " + response.statusCode());
+      logger.info("Updated item status for item " + itemId);
+      routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
+          .end("Updated item status for item " + itemId + " to " + statusDescription);
     }).putHeader("content-type", "text/plain").putHeader("Accept", "application/json").end(itemAsJson);
   }
 
@@ -136,24 +142,24 @@ public class MainVerticle extends AbstractVerticle {
     patronId = itemReturn.getPatron();
     loanId = itemReturn.getLoan();
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {   
+    httpClient.get(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
       response.bodyHandler(buffer -> {
-        item = Json.decodeValue(buffer.toString(), Item.class);
-        itemId = item.getItemId();
-        updateItemStatus("01", "ITEM_STATUS_MISSING");
+        Loan loan = Json.decodeValue(buffer.toString(), Loan.class);
+        logger.info("Found loan " + loanId + " for patron " + patronId);
+        itemId = loan.getItemId();
+        deleteLoanForPatron(routingContext);
+        updateItemStatus(itemId, "01", "ITEM_STATUS_MISSING", routingContext);
       });
-      deleteLoanForPatron(routingContext);
+
     }).putHeader("content-type", "text/plain").end();
   }
 
   private void deleteLoanForPatron(RoutingContext routingContext) {
+    logger.info("Deleting loan " + loanId + " for patron " + patronId);
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response2 -> {
-      logger.info("Received response with status code " + response2.statusCode());
-      routingContext.response().setStatusCode(200)
-          .putHeader("content-type", "application/json; charset=utf-8")
-          .end("returned " + loanId + " for " + patronId);
+    httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
+      logger.info("Deleted loan " + loanId + " for " + patronId);
     }).putHeader("content-type", "text/plain").end();
   }
-  
+
 }
