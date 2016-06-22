@@ -33,7 +33,6 @@ public class MainVerticle extends AbstractVerticle {
 
   KieServices kieServices = KieServices.Factory.get();
   KieContainer kContainer = kieServices.getKieClasspathContainer();
-  KieSession kSession = kContainer.newKieSession("ksession-rules");
 
   private final Logger logger = LoggerFactory.getLogger("hbz-deliver-module");
 
@@ -86,9 +85,21 @@ public class MainVerticle extends AbstractVerticle {
 
   private void processLoan(RoutingContext routingContext) {
     logger.info("Processing loan...");
-    kSession.insert(new Object[] { patron, item });
+    logger.info("Checking rules...");
+    LoanPermission loanPermission = new LoanPermission();
+    KieSession kSession = kContainer.newKieSession("ksession-rules");
+    kSession.insert(patron);
+    kSession.insert(item);
+    kSession.insert(loanPermission);
     kSession.fireAllRules();
-    createLoanForPatron(routingContext);
+    if (loanPermission.isPermitted() == true) {
+      createLoanForPatron(routingContext);
+    } else {
+      routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
+          .end("Cannot loan! Either item is loaned or patron is not allowed.");
+    }
+    kSession.dispose();
+    kSession.destroy(); // needed here?
   }
 
   private void createLoanForPatron(RoutingContext routingContext) {
@@ -147,7 +158,6 @@ public class MainVerticle extends AbstractVerticle {
         deleteLoanForPatron(routingContext);
         updateItemStatus(itemId, "01", "ITEM_STATUS_MISSING", routingContext);
       });
-
     }).putHeader("content-type", "text/plain").end();
   }
 
