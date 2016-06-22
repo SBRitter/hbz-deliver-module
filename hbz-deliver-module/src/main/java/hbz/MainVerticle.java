@@ -26,10 +26,11 @@ import com.sling.rest.jaxrs.model.Status;
 public class MainVerticle extends AbstractVerticle {
 
   String patronId;
-  String itemId;
   Patron patron;
+  String itemId;
   Item item;
   String loanId;
+  Loan loan;
 
   KieServices kieServices = KieServices.Factory.get();
   KieContainer kContainer = kieServices.getKieClasspathContainer();
@@ -104,10 +105,15 @@ public class MainVerticle extends AbstractVerticle {
 
   private void createLoanForPatron(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
-    Loan loan = createLoanObject();
+    loan = createLoanObject();
     String loanAsJson = Json.encode(loan);
     httpClient.post(8081, "localhost", "/apis/patrons/" + patronId + "/loans/", response -> {
-      logger.info("Created loan for patron " + patronId);
+      response.bodyHandler(buffer -> {
+        // that does not work
+        loan = Json.decodeValue(buffer.toString(), Loan.class);
+        logger.info("Created loan with id " + loan.getLoanId() + " for patron " + patronId);
+        
+      });
       updateItemStatus(item.getItemId(), "02", "ITEM_STATUS_ON_LOAN", routingContext);
     }).putHeader("content-type", "text/plain").putHeader("Accept", "application/json").end(loanAsJson);
   }
