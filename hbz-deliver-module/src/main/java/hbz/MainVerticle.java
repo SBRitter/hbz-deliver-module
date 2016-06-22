@@ -10,12 +10,9 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.core.http.HttpClient;
 
-import java.util.Arrays;
-
 import org.kie.api.KieServices;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
-import org.kie.api.runtime.StatelessKieSession;
 
 import com.sling.rest.jaxrs.model.CircDesk;
 import com.sling.rest.jaxrs.model.Item;

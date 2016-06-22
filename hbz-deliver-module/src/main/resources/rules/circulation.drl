@@ -1,0 +1,14 @@
+package rules;
+
+import com.sling.rest.jaxrs.model.Patron;
+import com.sling.rest.jaxrs.model.Item;
+import com.sling.rest.jaxrs.model.Status;
+
+rule "Patron is active"
+when 
+  $p : Patron(getStatus() == "ACTIVE")
+  $i : Item(getStatus().getValue() == "01")
+then
+  System.out.println("Patron is active");
+  System.out.println("Item status is 01");
+end
