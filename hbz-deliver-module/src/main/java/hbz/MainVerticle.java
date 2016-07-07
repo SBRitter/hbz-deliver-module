@@ -10,6 +10,8 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.core.http.HttpClient;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.kie.api.KieServices;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
@@ -43,11 +45,10 @@ public class MainVerticle extends AbstractVerticle {
   public void start(Future<Void> fut) {
     Router router = Router.router(vertx);
     final int port = Integer.parseInt(System.getProperty("port", "8080"));
-
     router.route("/deliver*").handler(BodyHandler.create());
     router.post("/deliver/loan").handler(this::loan);
     router.post("/deliver/return").handler(this::returnItem);
-
+    router.get("/deliver/listLoans/:patronId").handler(this::getLoansForPatron);
     vertx.createHttpServer().requestHandler(router::accept).listen(port, result -> {
       if (result.succeeded()) {
         fut.complete();
@@ -106,8 +107,9 @@ public class MainVerticle extends AbstractVerticle {
     if (loanPermission.isPermitted() == true) {
       createLoanForPatron(routingContext);
     } else {
-      routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
-          .end("Cannot loan! Either item is loaned or patron is not allowed.");
+      routingContext.response().setStatusCode(200)
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .end("Cannot loan! Either item is loaned or patron is not allowed.");
     }
     kSession.destroy();
   }
@@ -195,6 +197,28 @@ public class MainVerticle extends AbstractVerticle {
     })
     .putHeader("content-type", "application/json")
     .putHeader("accept", "text/plain")
+    .putHeader("authorization", authorization)
+    .end();
+  }
+
+  private void getLoansForPatron(RoutingContext routingContext) {
+    final String patronId = routingContext.request().getParam("patronId");
+    HttpClient httpClient = vertx.createHttpClient();
+    httpClient.get(8081, "localhost", "/apis/patrons/" + patronId + "/loans", response -> {
+      response.bodyHandler(buffer -> {
+        try {
+          JSONObject bufferAsJson = new JSONObject(buffer.toString());
+          JSONArray loans = bufferAsJson.getJSONArray("loans");
+          routingContext.response().setStatusCode(200)
+          .putHeader("content-type", "application/json; charset=utf-8")
+          .end(loans.toString());
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      });
+    })
+    .putHeader("content-type", "application/json")
+    .putHeader("accept", "application/json")
     .putHeader("authorization", authorization)
     .end();
   }
