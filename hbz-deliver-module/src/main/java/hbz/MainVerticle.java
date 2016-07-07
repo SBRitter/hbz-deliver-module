@@ -25,12 +25,14 @@ import com.sling.rest.jaxrs.model.Status;
 
 public class MainVerticle extends AbstractVerticle {
 
+  Delivery delivery;
   String patronId;
   Patron patron;
   String itemId;
   Item item;
   String loanId;
   Loan loan;
+  String authorization = "a2VybWl0Omtlcm1pdA";
 
   KieServices kieServices = KieServices.Factory.get();
   KieContainer kContainer = kieServices.getKieClasspathContainer();
@@ -56,7 +58,7 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private void loan(RoutingContext routingContext) {
-    final Delivery delivery = Json.decodeValue(routingContext.getBodyAsString(), Delivery.class);
+    delivery = Json.decodeValue(routingContext.getBodyAsString(), Delivery.class);
     patronId = delivery.getPatron();
     itemId = delivery.getItem();
     retrievePatron(routingContext);
@@ -70,7 +72,11 @@ public class MainVerticle extends AbstractVerticle {
         logger.info("Found patron: " + patron.getPatronName() + " with id " + patronId);
         retrieveItem(routingContext);
       });
-    }).putHeader("content-type", "application/json").end();
+    })
+    .putHeader("content-type", "application/json")
+    .putHeader("accept", "application/json")
+    .putHeader("authorization", authorization)
+    .end();
   }
 
   private void retrieveItem(RoutingContext routingContext) {
@@ -78,10 +84,14 @@ public class MainVerticle extends AbstractVerticle {
     httpClient.get(8081, "localhost", "/apis/items/" + itemId, response -> {
       response.bodyHandler(buffer -> {
         item = Json.decodeValue(buffer.toString(), Item.class);
-        logger.info("Found item: " + item.getItemId());
+        logger.info("Found item: " + item.getId());
         processLoan(routingContext);
       });
-    }).putHeader("content-type", "application/json").end();
+    })
+    .putHeader("content-type", "application/json")
+    .putHeader("accept", "application/json")
+    .putHeader("authorization", authorization)
+    .end();
   }
 
   private void processLoan(RoutingContext routingContext) {
@@ -99,8 +109,7 @@ public class MainVerticle extends AbstractVerticle {
       routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
           .end("Cannot loan! Either item is loaned or patron is not allowed.");
     }
-    kSession.dispose();
-    kSession.destroy(); // needed here?
+    kSession.destroy();
   }
 
   private void createLoanForPatron(RoutingContext routingContext) {
@@ -109,13 +118,16 @@ public class MainVerticle extends AbstractVerticle {
     String loanAsJson = Json.encode(loan);
     httpClient.post(8081, "localhost", "/apis/patrons/" + patronId + "/loans/", response -> {
       response.bodyHandler(buffer -> {
-        // that does not work
         loan = Json.decodeValue(buffer.toString(), Loan.class);
-        logger.info("Created loan with id " + loan.getLoanId() + " for patron " + patronId);
-        
+        logger.info(buffer.toString());
+        logger.info("Created loan with id " + loan.getId() + " for patron " + patronId);
       });
-      updateItemStatus(item.getItemId(), "02", "ITEM_STATUS_ON_LOAN", routingContext);
-    }).putHeader("content-type", "text/plain").putHeader("Accept", "application/json").end(loanAsJson);
+      updateItemStatus(item.getId(), "02", "ITEM_STATUS_ON_LOAN", routingContext);
+    })
+    .putHeader("content-type", "application/json")
+    .putHeader("accept", "text/plain")
+    .putHeader("authorization", authorization)
+    .end(loanAsJson);
   }
 
   private void updateItemStatus(String itemId, String statusValue, String statusDescription,
@@ -130,14 +142,18 @@ public class MainVerticle extends AbstractVerticle {
       logger.info("Updated item status for item " + itemId);
       routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
           .end("Updated item status for item " + itemId + " to " + statusDescription);
-    }).putHeader("content-type", "text/plain").putHeader("Accept", "application/json").end(itemAsJson);
+    })
+    .putHeader("content-type", "application/json")
+    .putHeader("accept", "text/plain")
+    .putHeader("authorization", authorization)
+    .end(itemAsJson);
   }
 
   private Loan createLoanObject() {
     Loan loan = new Loan();
     loan.setPatronId(patronId);
     loan.setItemBarcode(item.getBarcode());
-    loan.setItemId(item.getItemId());
+    loan.setItemId(item.getId());
     loan.setDueDate((int) System.currentTimeMillis() + (86400 * 7 * 1000));
     loan.setItemPolicy(new ItemPolicy());
     loan.setCircDesk(new CircDesk());
@@ -164,7 +180,11 @@ public class MainVerticle extends AbstractVerticle {
         deleteLoanForPatron(routingContext);
         updateItemStatus(itemId, "01", "ITEM_STATUS_MISSING", routingContext);
       });
-    }).putHeader("content-type", "text/plain").end();
+    })
+    .putHeader("content-type", "application/json")
+    .putHeader("accept", "application/json")
+    .putHeader("authorization", authorization)
+    .end();
   }
 
   private void deleteLoanForPatron(RoutingContext routingContext) {
@@ -172,7 +192,10 @@ public class MainVerticle extends AbstractVerticle {
     HttpClient httpClient = vertx.createHttpClient();
     httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
       logger.info("Deleted loan " + loanId + " for " + patronId);
-    }).putHeader("content-type", "text/plain").end();
+    })
+    .putHeader("content-type", "application/json")
+    .putHeader("accept", "text/plain")
+    .putHeader("authorization", authorization)
+    .end();
   }
-
 }
