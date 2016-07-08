@@ -16,14 +16,11 @@
 			<h2>loan list</h2>
 		</div>
 		<div class="page-header">
-
 			<div class="row">
-
 				<div class="col-md-6">
 					<div class="input-group">
-						<input type="text" class="form-control"
-							id="patronId" /> <span
-							class="input-group-btn">
+						<input type="text" class="form-control" id="patronId" placeholder="enter patron id" />
+						<span class="input-group-btn">
 							<button class="btn btn-primary" type="button" id="getLoansButton">get
 								loans!</button>
 						</span>
@@ -31,6 +28,11 @@
 				</div>
 				<div class="col-md-6"></div>
 				<div class="col-md-12">
+					<br />
+					 <div class="alert alert-info" role="alert" id="result"
+						style="display: none;"></div>
+					<div class="alert alert-danger" role="alert" id="alert"
+						style="display: none;"></div>
 					<br />
 					<table class="table"></table>
 				</div>
@@ -42,24 +44,45 @@
 		$(document).ready(function() {
 			$('#getLoansButton').click(function() {
 				$.get("/deliver/loans/" + $('#patronId').val(), function(data) {
+					$('#alert').hide();
 					$('.table').empty();
-					var loanArray = $.parseJSON(data);
-					var tr;
-					tr = $('<tr/>');
-					tr.append("<th>loan id</th>");
-					tr.append("<th>item id</th>");
-					tr.append("<th>title</th>");
-					tr.append("<th>actions</th>");
-					$('table').append(tr);
-
-					for (var i = 0; i < loanArray.length; i++) {
+					if (data.startsWith("Error")) {
+						$('#alert').text(data);
+						$('#alert').fadeIn(500);
+					} else {
+						var loanArray = $.parseJSON(data);
+						var tr;
 						tr = $('<tr/>');
-						tr.append("<td>" + loanArray[i]._id + "</td>");
-						tr.append("<td>" + loanArray[i].item_id + "</td>");
-						tr.append("<td>" + loanArray[i].title + "</td>");
-						tr.append("<td><button type='button' id='loanButton' class='btn btn-primary'>return</button></td>");
+						tr.append("<th>loan id</th>");
+						tr.append("<th>item id</th>");
+						tr.append("<th>title</th>");
+						tr.append("<th>actions</th>");
 						$('table').append(tr);
+						for (var i = 0; i < loanArray.length; i++) {
+							tr = $('<tr/>');
+							tr.append("<td>" + loanArray[i]._id + "</td>");
+							tr.append("<td>" + loanArray[i].item_id + "</td>");
+							tr.append("<td>" + loanArray[i].title + "</td>");
+							tr.append("<td><button type='button' class='btn btn-primary return-button'>return</button></td>");
+							$('table').append(tr);
+						}
 					}
+					$('.return-button').click(function() {
+						var returnJson = new Object();
+						returnJson.patron = $('#patronId').val();
+						var thisRow = $(this).closest("tr");
+						returnJson.loan = thisRow.find("td").eq(0).text();
+						var returnString = JSON.stringify(returnJson);
+						$.post("/deliver/return", returnString, function(data) {
+							// todo: only remove row if return was successful!
+							thisRow.remove();
+							$('#result').text(data);
+							$('#result').fadeIn(500);
+						});
+					});
+				});
+				$('.btn').click(function() {
+					$('#result').hide();
 				});
 			})
 		});
