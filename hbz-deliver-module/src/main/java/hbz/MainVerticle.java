@@ -53,7 +53,8 @@ public class MainVerticle extends AbstractVerticle {
     router.get("/deliver/loan").handler(this::showLoanScreen);
     router.post("/deliver/loan").handler(this::loan);
     router.post("/deliver/return").handler(this::returnItem);
-    router.get("/deliver/listLoans/:patronId").handler(this::getLoansForPatron);
+    router.get("/deliver/loans/:patronId").handler(this::getLoansForPatron);
+    router.get("/deliver/listLoans").handler(this::showLoanListScreen);
     vertx.createHttpServer().requestHandler(router::accept).listen(port, result -> {
       if (result.succeeded()) {
         fut.complete();
@@ -238,11 +239,7 @@ public class MainVerticle extends AbstractVerticle {
         try {
           JSONObject bufferAsJson = new JSONObject(buffer.toString());
           JSONArray loans = bufferAsJson.getJSONArray("loans");
-          routingContext.put("loanArray", loans.toString());
-          routingContext.put("patronId", patronId);
-          engine.render(routingContext, "templates/loans.html", engineResponse -> {
-            routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(engineResponse.result());
-          });
+          routingContext.response().end(loans.toString());
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -251,5 +248,11 @@ public class MainVerticle extends AbstractVerticle {
         .putHeader("accept", "application/json")
         .putHeader("authorization", authorization)
         .end();
+  }
+
+  private void showLoanListScreen(RoutingContext routingContext) {
+    engine.render(routingContext, "templates/loans.html", response -> {
+      routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result());
+    });
   }
 }

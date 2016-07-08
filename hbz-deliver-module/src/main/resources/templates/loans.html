@@ -13,36 +13,58 @@
 <body>
 	<div class="container">
 		<div class="jumbotron">
-			<h2 th:text="'Loans for patron ' + ${context.get('patronId')}">...</h2>
+			<h2>loan list</h2>
 		</div>
 		<div class="page-header">
+
 			<div class="row">
+
+				<div class="col-md-6">
+					<div class="input-group">
+						<input type="text" class="form-control"
+							id="patronId" /> <span
+							class="input-group-btn">
+							<button class="btn btn-primary" type="button" id="getLoansButton">get
+								loans!</button>
+						</span>
+					</div>
+				</div>
+				<div class="col-md-6"></div>
 				<div class="col-md-12">
-					<table class="table">
-						<tr>
-							<th>loan id</th>
-							<th>item id</th>
-							<th>title</th>
-							<th>actions</th>
-						</tr>
-					</table>
+					<br />
+					<table class="table"></table>
 				</div>
 			</div>
 		</div>
 	</div>
-	<script th:inline="javascript">
+	<script th:inline="javascript" type="text/javascript">
 		/*<![CDATA[*/
-		var loanArray = $.parseJSON([[${context.get('loanArray')}]]);
-		var tr;
-		for (var i = 0; i < loanArray.length; i++) {
-			tr = $('<tr/>');
-			tr.append("<td>" + loanArray[i]._id + "</td>");
-			tr.append("<td>" + loanArray[i].item_id + "</td>");
-			tr.append("<td>" + loanArray[i].title + "</td>");
-			tr.append("<td><button type='button' id='loanButton' class='btn btn-primary'>return</button></td>");
-			$('table').append(tr);
-		}
+		$(document).ready(function() {
+			$('#getLoansButton').click(function() {
+				$.get("/deliver/loans/" + $('#patronId').val(), function(data) {
+					$('.table').empty();
+					var loanArray = $.parseJSON(data);
+					var tr;
+					tr = $('<tr/>');
+					tr.append("<th>loan id</th>");
+					tr.append("<th>item id</th>");
+					tr.append("<th>title</th>");
+					tr.append("<th>actions</th>");
+					$('table').append(tr);
+
+					for (var i = 0; i < loanArray.length; i++) {
+						tr = $('<tr/>');
+						tr.append("<td>" + loanArray[i]._id + "</td>");
+						tr.append("<td>" + loanArray[i].item_id + "</td>");
+						tr.append("<td>" + loanArray[i].title + "</td>");
+						tr.append("<td><button type='button' id='loanButton' class='btn btn-primary'>return</button></td>");
+						$('table').append(tr);
+					}
+				});
+			})
+		});
 		/*]]>*/
 	</script>
+
 </body>
 </html>
