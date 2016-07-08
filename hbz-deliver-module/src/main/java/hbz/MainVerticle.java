@@ -9,6 +9,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpHeaders;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -25,6 +26,8 @@ import com.sling.rest.jaxrs.model.LocationCode;
 import com.sling.rest.jaxrs.model.Patron;
 import com.sling.rest.jaxrs.model.Status;
 
+import io.vertx.ext.web.templ.ThymeleafTemplateEngine;
+
 public class MainVerticle extends AbstractVerticle {
 
   Delivery delivery;
@@ -40,12 +43,14 @@ public class MainVerticle extends AbstractVerticle {
   KieContainer kContainer = kieServices.getKieClasspathContainer();
 
   private final Logger logger = LoggerFactory.getLogger("hbz-deliver-module");
+  private final ThymeleafTemplateEngine engine = ThymeleafTemplateEngine.create();
 
   @Override
   public void start(Future<Void> fut) {
     Router router = Router.router(vertx);
     final int port = Integer.parseInt(System.getProperty("port", "8080"));
     router.route("/deliver*").handler(BodyHandler.create());
+    router.get("/deliver/loan").handler(this::showLoanScreen);
     router.post("/deliver/loan").handler(this::loan);
     router.post("/deliver/return").handler(this::returnItem);
     router.get("/deliver/listLoans/:patronId").handler(this::getLoansForPatron);
@@ -55,6 +60,12 @@ public class MainVerticle extends AbstractVerticle {
       } else {
         fut.fail(result.cause());
       }
+    });
+  }
+
+  private void showLoanScreen(RoutingContext routingContext) {
+    engine.render(routingContext, "templates/loan.html", response -> {
+      routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result());
     });
   }
 
@@ -68,31 +79,39 @@ public class MainVerticle extends AbstractVerticle {
   private void retrievePatron(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
     httpClient.get(8081, "localhost", "/apis/patrons/" + patronId, response -> {
-      response.bodyHandler(buffer -> {
-        patron = Json.decodeValue(buffer.toString(), Patron.class);
-        logger.info("Found patron: " + patron.getPatronName() + " with id " + patronId);
-        retrieveItem(routingContext);
-      });
-    })
-    .putHeader("content-type", "application/json")
-    .putHeader("accept", "application/json")
-    .putHeader("authorization", authorization)
-    .end();
+      if (response.statusCode() == 200) {
+        response.bodyHandler(buffer -> {
+          patron = Json.decodeValue(buffer.toString(), Patron.class);
+          logger.info("Found patron: " + patron.getPatronName() + " with id " + patronId);
+          retrieveItem(routingContext);
+        });
+      } else {
+        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+            .end("Could not find patron with id " + patronId);
+      }
+    }).putHeader("content-type", "application/json")
+        .putHeader("accept", "application/json")
+        .putHeader("authorization", authorization)
+        .end();
   }
 
   private void retrieveItem(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
     httpClient.get(8081, "localhost", "/apis/items/" + itemId, response -> {
-      response.bodyHandler(buffer -> {
-        item = Json.decodeValue(buffer.toString(), Item.class);
-        logger.info("Found item: " + item.getId());
-        processLoan(routingContext);
-      });
-    })
-    .putHeader("content-type", "application/json")
-    .putHeader("accept", "application/json")
-    .putHeader("authorization", authorization)
-    .end();
+      if (response.statusCode() == 200) {
+        response.bodyHandler(buffer -> {
+          item = Json.decodeValue(buffer.toString(), Item.class);
+          logger.info("Found item: " + item.getId());
+          processLoan(routingContext);
+        });
+      } else {
+        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+            .end("Could not find item with id " + itemId);
+      }
+    }).putHeader("content-type", "application/json")
+        .putHeader("accept", "application/json")
+        .putHeader("authorization", authorization)
+        .end();
   }
 
   private void processLoan(RoutingContext routingContext) {
@@ -107,9 +126,7 @@ public class MainVerticle extends AbstractVerticle {
     if (loanPermission.isPermitted() == true) {
       createLoanForPatron(routingContext);
     } else {
-      routingContext.response().setStatusCode(200)
-        .putHeader("content-type", "application/json; charset=utf-8")
-        .end("Cannot loan! Either item is loaned or patron is not allowed.");
+      routingContext.response().end("Cannot loan! Either item is loaned or patron is not allowed.");
     }
     kSession.destroy();
   }
@@ -119,17 +136,21 @@ public class MainVerticle extends AbstractVerticle {
     loan = createLoanObject();
     String loanAsJson = Json.encode(loan);
     httpClient.post(8081, "localhost", "/apis/patrons/" + patronId + "/loans/", response -> {
-      response.bodyHandler(buffer -> {
-        loan = Json.decodeValue(buffer.toString(), Loan.class);
-        logger.info(buffer.toString());
-        logger.info("Created loan with id " + loan.getId() + " for patron " + patronId);
-      });
-      updateItemStatus(item.getId(), "02", "ITEM_STATUS_ON_LOAN", routingContext);
-    })
-    .putHeader("content-type", "application/json")
-    .putHeader("accept", "text/plain")
-    .putHeader("authorization", authorization)
-    .end(loanAsJson);
+      if (response.statusCode() == 201) {
+        response.bodyHandler(buffer -> {
+          loan = Json.decodeValue(buffer.toString(), Loan.class);
+          logger.info(buffer.toString());
+          logger.info("Created loan with id " + loan.getId() + " for patron " + patronId);
+        });
+        updateItemStatus(item.getId(), "02", "ITEM_STATUS_ON_LOAN", routingContext);
+      } else {
+        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+            .end("Could not create loan");
+      }
+    }).putHeader("content-type", "application/json")
+        .putHeader("accept", "text/plain")
+        .putHeader("authorization", authorization)
+        .end(loanAsJson);
   }
 
   private void updateItemStatus(String itemId, String statusValue, String statusDescription,
@@ -141,14 +162,18 @@ public class MainVerticle extends AbstractVerticle {
     item.setStatus(status);
     String itemAsJson = Json.encode(item);
     httpClient.put(8081, "localhost", "/apis/items/" + itemId, response -> {
-      logger.info("Updated item status for item " + itemId);
-      routingContext.response().setStatusCode(200).putHeader("content-type", "application/json; charset=utf-8")
-          .end("Updated item status for item " + itemId + " to " + statusDescription);
-    })
-    .putHeader("content-type", "application/json")
-    .putHeader("accept", "text/plain")
-    .putHeader("authorization", authorization)
-    .end(itemAsJson);
+      if (response.statusCode() == 204) {
+        logger.info("Updated item status for item " + itemId);
+        routingContext.response().end("Updated item status for item " + itemId + " to " + statusDescription);
+      } else {
+        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+            .end("Could not update item status");
+      }
+    }).putHeader("content-type", "application/json")
+        .putHeader("accept", "text/plain")
+        .putHeader("authorization", authorization)
+        .end(itemAsJson);
+
   }
 
   private Loan createLoanObject() {
@@ -182,11 +207,13 @@ public class MainVerticle extends AbstractVerticle {
         deleteLoanForPatron(routingContext);
         updateItemStatus(itemId, "01", "ITEM_STATUS_MISSING", routingContext);
       });
-    })
-    .putHeader("content-type", "application/json")
-    .putHeader("accept", "application/json")
-    .putHeader("authorization", authorization)
-    .end();
+    }).putHeader("content-type", "application/json")
+        .putHeader("accept", "application/json")
+        .putHeader("authorization", authorization)
+        .end();
+
+    routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        .end("Did not find loan" + loanId + " for patron " + patronId);
   }
 
   private void deleteLoanForPatron(RoutingContext routingContext) {
@@ -194,11 +221,13 @@ public class MainVerticle extends AbstractVerticle {
     HttpClient httpClient = vertx.createHttpClient();
     httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
       logger.info("Deleted loan " + loanId + " for " + patronId);
-    })
-    .putHeader("content-type", "application/json")
-    .putHeader("accept", "text/plain")
-    .putHeader("authorization", authorization)
-    .end();
+    }).putHeader("content-type", "application/json")
+        .putHeader("accept", "text/plain")
+        .putHeader("authorization", authorization)
+        .end();
+
+    routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        .end("Could not delete loan with id " + loanId);
   }
 
   private void getLoansForPatron(RoutingContext routingContext) {
@@ -209,17 +238,18 @@ public class MainVerticle extends AbstractVerticle {
         try {
           JSONObject bufferAsJson = new JSONObject(buffer.toString());
           JSONArray loans = bufferAsJson.getJSONArray("loans");
-          routingContext.response().setStatusCode(200)
-          .putHeader("content-type", "application/json; charset=utf-8")
-          .end(loans.toString());
+          routingContext.put("loanArray", loans.toString());
+          routingContext.put("patronId", patronId);
+          engine.render(routingContext, "templates/loans.html", engineResponse -> {
+            routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(engineResponse.result());
+          });
         } catch (Exception e) {
           e.printStackTrace();
         }
       });
-    })
-    .putHeader("content-type", "application/json")
-    .putHeader("accept", "application/json")
-    .putHeader("authorization", authorization)
-    .end();
+    }).putHeader("content-type", "application/json")
+        .putHeader("accept", "application/json")
+        .putHeader("authorization", authorization)
+        .end();
   }
 }

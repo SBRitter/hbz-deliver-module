@@ -1,0 +1,48 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org">
+<head>
+<title>loans for patron</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<script src="http://code.jquery.com/jquery-latest.js"></script>
+<link
+	th:href="@{http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css}"
+	rel="stylesheet" />
+
+</head>
+<body>
+	<div class="container">
+		<div class="jumbotron">
+			<h2 th:text="'Loans for patron ' + ${context.get('patronId')}">...</h2>
+		</div>
+		<div class="page-header">
+			<div class="row">
+				<div class="col-md-12">
+					<table class="table">
+						<tr>
+							<th>loan id</th>
+							<th>item id</th>
+							<th>title</th>
+							<th>actions</th>
+						</tr>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script th:inline="javascript">
+		/*<![CDATA[*/
+		var loanArray = $.parseJSON([[${context.get('loanArray')}]]);
+		var tr;
+		for (var i = 0; i < loanArray.length; i++) {
+			tr = $('<tr/>');
+			tr.append("<td>" + loanArray[i]._id + "</td>");
+			tr.append("<td>" + loanArray[i].item_id + "</td>");
+			tr.append("<td>" + loanArray[i].title + "</td>");
+			tr.append("<td><button type='button' id='loanButton' class='btn btn-primary'>return</button></td>");
+			$('table').append(tr);
+		}
+		/*]]>*/
+	</script>
+</body>
+</html>
