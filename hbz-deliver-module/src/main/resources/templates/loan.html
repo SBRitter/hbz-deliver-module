@@ -10,15 +10,11 @@
 	rel="stylesheet" />
 
 </head>
-
 <body>
-
 	<div class="container">
-
 		<div class="jumbotron">
 			<h2>loan</h2>
 		</div>
-
 		<div class="page-header">
 			<div class="row">
 				<div class="col-md-6">
@@ -33,31 +29,39 @@
 						</fieldset>
 						<button type="button" id="loanButton" class="btn btn-primary">loan</button>
 					</form><br />
-					<div class="alert alert-info" role="alert" id="result" style="display: none;"></div>
+					<div class="alert alert-success" role="alert" id="success" style="display: none;"></div>
+					<div class="alert alert-danger" role="alert" id="error" style="display: none;"></div>
 				</div>
 				<div class="col-md-6"></div>
 			</div>
 		</div>
-
 	</div>
-
 	<script th:inline="javascript">
 		/*<![CDATA[*/
 		$(document).ready(function() {
 			$('#loanButton').click(function() {
+				$('#success').hide();
+				$('#error').hide();
 				var deliveryJson = new Object();
 				deliveryJson.patron = $('#patronId').val();
 				deliveryJson.item = $('#itemId').val();
 				var deliveryString = JSON.stringify(deliveryJson);
-				$.post("/deliver/loan", deliveryString, function(data) {
-					$('#result').text(data);
-					$('#result').fadeIn(500);
+				$.ajax({
+					type: "POST",
+					url: "/deliver/loan",
+					data: deliveryString,
+					success: function(message){
+						$('#success').text(message);
+						$('#success').fadeIn(500);
+					},
+					error: function(XMLHttpRequest, textStatus, errorThrown) {
+						$('#error').text(XMLHttpRequest.responseText);
+						$('#error').fadeIn(500);
+					}
 				});
 			});
 		});
 		/*]]>*/
 	</script>
-
 </body>
-
 </html>

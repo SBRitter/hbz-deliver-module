@@ -66,7 +66,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void showLoanScreen(RoutingContext routingContext) {
     engine.render(routingContext, "templates/loan.html", response -> {
-      routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result());
+      routingContext.response().setStatusCode(200).putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result());
     });
   }
 
@@ -87,7 +87,7 @@ public class MainVerticle extends AbstractVerticle {
           retrieveItem(routingContext);
         });
       } else {
-        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(404).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Could not find patron with id " + patronId);
       }
     }).putHeader("content-type", "application/json")
@@ -106,7 +106,7 @@ public class MainVerticle extends AbstractVerticle {
           processLoan(routingContext);
         });
       } else {
-        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(404).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Could not find item with id " + itemId);
       }
     }).putHeader("content-type", "application/json")
@@ -127,7 +127,7 @@ public class MainVerticle extends AbstractVerticle {
     if (loanPermission.isPermitted() == true) {
       createLoanForPatron(routingContext);
     } else {
-      routingContext.response().end("Cannot loan! Either item is loaned or patron is not allowed.");
+      routingContext.response().setStatusCode(400).end("Cannot loan! Either item is loaned or patron is not allowed.");
     }
     kSession.destroy();
   }
@@ -145,7 +145,7 @@ public class MainVerticle extends AbstractVerticle {
         });
         updateItemStatus(item.getId(), "02", "ITEM_STATUS_ON_LOAN", routingContext);
       } else {
-        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Could not create loan");
       }
     }).putHeader("content-type", "application/json")
@@ -154,6 +154,7 @@ public class MainVerticle extends AbstractVerticle {
         .end(loanAsJson);
   }
 
+  
   private void updateItemStatus(String itemId, String statusValue, String statusDescription,
       RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
@@ -167,7 +168,7 @@ public class MainVerticle extends AbstractVerticle {
         logger.info("Updated item status for item " + itemId);
         routingContext.response().setStatusCode(200).end("Updated item status for item " + itemId + " to " + statusDescription);
       } else {
-        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Could not update item status");
       }
     }).putHeader("content-type", "application/json")
@@ -207,10 +208,9 @@ public class MainVerticle extends AbstractVerticle {
           logger.info("Found loan " + loanId + " for patron " + patronId);
           itemId = loan.getItemId();
           deleteLoanForPatron(routingContext);
-          updateItemStatus(itemId, "01", "ITEM_STATUS_MISSING", routingContext);
         });
       } else {
-        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(404).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Did not find loan " + loanId + " for patron " + patronId);
       }
     }).putHeader("content-type", "application/json")
@@ -225,8 +225,9 @@ public class MainVerticle extends AbstractVerticle {
     httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
       if (response.statusCode() == 204) {
         logger.info("Deleted loan " + loanId + " for " + patronId);
+        updateItemStatus(itemId, "01", "ITEM_STATUS_MISSING", routingContext);
       } else {
-        routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Could not delete loan with id " + loanId);
       }
     }).putHeader("content-type", "application/json")
@@ -247,7 +248,7 @@ public class MainVerticle extends AbstractVerticle {
           if (loans.length() > 0) {
             routingContext.response().end(loans.toString());
           } else {
-            routingContext.response().end("Error: No loans found");
+            routingContext.response().setStatusCode(404).end("Error: No loans found");
           }
         } catch (Exception e) {
           e.printStackTrace();
@@ -261,7 +262,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void showLoanListScreen(RoutingContext routingContext) {
     engine.render(routingContext, "templates/loans.html", response -> {
-      routingContext.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result());
+      routingContext.response().setStatusCode(200).putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result());
     });
   }
 }
