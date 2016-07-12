@@ -30,6 +30,8 @@ import io.vertx.ext.web.templ.ThymeleafTemplateEngine;
 
 public class MainVerticle extends AbstractVerticle {
 
+  private static final String PATRON_API = "/apis/patrons/";
+  private static final String SERVER = "localhost";
   Delivery delivery;
   String patronId;
   Patron patron;
@@ -65,9 +67,8 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private void showLoanScreen(RoutingContext routingContext) {
-    engine.render(routingContext, "templates/loan.html", response -> {
-      routingContext.response().setStatusCode(200).putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result());
-    });
+    engine.render(routingContext, "templates/loan.html", response -> routingContext.response().setStatusCode(200)
+        .putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result()));
   }
 
   private void loan(RoutingContext routingContext) {
@@ -79,7 +80,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void retrievePatron(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, "localhost", "/apis/patrons/" + patronId, response -> {
+    httpClient.get(8081, SERVER, PATRON_API + patronId, response -> {
       if (response.statusCode() == 200) {
         response.bodyHandler(buffer -> {
           patron = Json.decodeValue(buffer.toString(), Patron.class);
@@ -98,7 +99,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void retrieveItem(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, "localhost", "/apis/items/" + itemId, response -> {
+    httpClient.get(8081, SERVER, "/apis/items/" + itemId, response -> {
       if (response.statusCode() == 200) {
         response.bodyHandler(buffer -> {
           item = Json.decodeValue(buffer.toString(), Item.class);
@@ -136,7 +137,7 @@ public class MainVerticle extends AbstractVerticle {
     HttpClient httpClient = vertx.createHttpClient();
     loan = createLoanObject();
     String loanAsJson = Json.encode(loan);
-    httpClient.post(8081, "localhost", "/apis/patrons/" + patronId + "/loans/", response -> {
+    httpClient.post(8081, SERVER, PATRON_API + patronId + "/loans/", response -> {
       if (response.statusCode() == 201) {
         response.bodyHandler(buffer -> {
           loan = Json.decodeValue(buffer.toString(), Loan.class);
@@ -154,7 +155,6 @@ public class MainVerticle extends AbstractVerticle {
         .end(loanAsJson);
   }
 
-  
   private void updateItemStatus(String itemId, String statusValue, String statusDescription,
       RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
@@ -163,10 +163,11 @@ public class MainVerticle extends AbstractVerticle {
     status.setDesc(statusDescription);
     item.setStatus(status);
     String itemAsJson = Json.encode(item);
-    httpClient.put(8081, "localhost", "/apis/items/" + itemId, response -> {
+    httpClient.put(8081, SERVER, "/apis/items/" + itemId, response -> {
       if (response.statusCode() == 204) {
         logger.info("Updated item status for item " + itemId);
-        routingContext.response().setStatusCode(200).end("Updated item status for item " + itemId + " to " + statusDescription);
+        routingContext.response().setStatusCode(200)
+            .end("Updated item status for item " + itemId + " to " + statusDescription);
       } else {
         routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Could not update item status");
@@ -179,21 +180,21 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private Loan createLoanObject() {
-    Loan loan = new Loan();
-    loan.setPatronId(patronId);
-    loan.setItemBarcode(item.getBarcode());
-    loan.setItemId(item.getId());
-    loan.setDueDate((int) System.currentTimeMillis() + (86400 * 7 * 1000));
-    loan.setItemPolicy(new ItemPolicy());
-    loan.setCircDesk(new CircDesk());
-    loan.setLoanStatus("loanStatus");
-    loan.setTitle("title");
-    loan.setLocationCode(new LocationCode());
-    loan.setLoanFine(123);
-    loan.setRenewable(true);
-    loan.setLoanDate((int) System.currentTimeMillis());
-    loan.setLibrary(new Library());
-    return loan;
+    Loan newLoan = new Loan();
+    newLoan.setPatronId(patronId);
+    newLoan.setItemBarcode(item.getBarcode());
+    newLoan.setItemId(item.getId());
+    newLoan.setDueDate((int) System.currentTimeMillis() + (86400 * 7 * 1000));
+    newLoan.setItemPolicy(new ItemPolicy());
+    newLoan.setCircDesk(new CircDesk());
+    newLoan.setLoanStatus("loanStatus");
+    newLoan.setTitle("title");
+    newLoan.setLocationCode(new LocationCode());
+    newLoan.setLoanFine(123);
+    newLoan.setRenewable(true);
+    newLoan.setLoanDate((int) System.currentTimeMillis());
+    newLoan.setLibrary(new Library());
+    return newLoan;
   }
 
   private void returnItem(RoutingContext routingContext) {
@@ -201,10 +202,10 @@ public class MainVerticle extends AbstractVerticle {
     patronId = itemReturn.getPatron();
     loanId = itemReturn.getLoan();
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
+    httpClient.get(8081, SERVER, PATRON_API + patronId + "/loans/" + loanId, response -> {
       if (response.statusCode() == 200) {
         response.bodyHandler(buffer -> {
-          Loan loan = Json.decodeValue(buffer.toString(), Loan.class);
+          loan = Json.decodeValue(buffer.toString(), Loan.class);
           logger.info("Found loan " + loanId + " for patron " + patronId);
           itemId = loan.getItemId();
           deleteLoanForPatron(routingContext);
@@ -222,7 +223,7 @@ public class MainVerticle extends AbstractVerticle {
   private void deleteLoanForPatron(RoutingContext routingContext) {
     logger.info("Deleting loan " + loanId + " for patron " + patronId);
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.delete(8081, "localhost", "/apis/patrons/" + patronId + "/loans/" + loanId, response -> {
+    httpClient.delete(8081, SERVER, PATRON_API + patronId + "/loans/" + loanId, response -> {
       if (response.statusCode() == 204) {
         logger.info("Deleted loan " + loanId + " for " + patronId);
         updateItemStatus(itemId, "01", "ITEM_STATUS_MISSING", routingContext);
@@ -238,31 +239,28 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private void getLoansForPatron(RoutingContext routingContext) {
-    final String patronId = routingContext.request().getParam("patronId");
+    patronId = routingContext.request().getParam("patronId");
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, "localhost", "/apis/patrons/" + patronId + "/loans", response -> {
-      response.bodyHandler(buffer -> {
-        try {
-          JSONObject bufferAsJson = new JSONObject(buffer.toString());
-          JSONArray loans = bufferAsJson.getJSONArray("loans");
-          if (loans.length() > 0) {
-            routingContext.response().end(loans.toString());
-          } else {
-            routingContext.response().setStatusCode(404).end("Error: No loans found");
-          }
-        } catch (Exception e) {
-          e.printStackTrace();
+    httpClient.get(8081, SERVER, PATRON_API + patronId + "/loans", response -> response.bodyHandler(buffer -> {
+      try {
+        JSONObject bufferAsJson = new JSONObject(buffer.toString());
+        JSONArray loans = bufferAsJson.getJSONArray("loans");
+        if (loans.length() > 0) {
+          routingContext.response().end(loans.toString());
+        } else {
+          routingContext.response().setStatusCode(404).end("Error: No loans found");
         }
-      });
-    }).putHeader("content-type", "application/json")
+      } catch (Exception e) {
+        logger.error(e);
+      }
+    })).putHeader("content-type", "application/json")
         .putHeader("accept", "application/json")
         .putHeader("authorization", authorization)
         .end();
   }
 
   private void showLoanListScreen(RoutingContext routingContext) {
-    engine.render(routingContext, "templates/loans.html", response -> {
-      routingContext.response().setStatusCode(200).putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result());
-    });
+    engine.render(routingContext, "templates/loans.html", response -> routingContext.response().setStatusCode(200)
+        .putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result()));
   }
 }

@@ -6,6 +6,7 @@ public class Delivery {
   private String item;
 
   public Delivery() {
+    // Empty constructor needed for de-/encoding of JSON objects
   }
 
   public Delivery(String patron, String item) {

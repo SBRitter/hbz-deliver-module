@@ -1,13 +1,12 @@
 {
-  "item_id": "57504f7d8f4bcb4cc599340a",
   "barcode": "39031031697261",
   "location": {
     "value": "STACK",
     "desc": "Stacks (STACK)"
   },
   "status": {
-    "value": "01",
-    "desc": "ITEM_STATUS_MISSING"
+    "value": "03",
+    "desc": "ITEM_STATUS_AVAILABLE"
   },
   "material_type": {
     "value": "BOOK",

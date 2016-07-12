@@ -6,6 +6,7 @@ public class ItemReturn {
   private String loan;
 
   public ItemReturn() {
+    // Empty constructor needed for de-/encoding of JSON objects
   }
 
   public ItemReturn(String patron, String loan) {
