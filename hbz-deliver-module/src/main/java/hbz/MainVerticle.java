@@ -144,7 +144,8 @@ public class MainVerticle extends AbstractVerticle {
           logger.info(buffer.toString());
           logger.info("Created loan with id " + loan.getId() + " for patron " + patronId);
         });
-        updateItemStatus(item.getId(), "02", "ITEM_STATUS_ON_LOAN", routingContext);
+        itemId = item.getId();
+        updateItemStatus("02", "ITEM_STATUS_ON_LOAN", routingContext);
       } else {
         routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Could not create loan");
@@ -155,7 +156,7 @@ public class MainVerticle extends AbstractVerticle {
         .end(loanAsJson);
   }
 
-  private void updateItemStatus(String itemId, String statusValue, String statusDescription,
+  private void updateItemStatus(String statusValue, String statusDescription,
       RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
     Status status = new Status();
@@ -226,7 +227,24 @@ public class MainVerticle extends AbstractVerticle {
     httpClient.delete(8081, SERVER, PATRON_API + patronId + "/loans/" + loanId, response -> {
       if (response.statusCode() == 204) {
         logger.info("Deleted loan " + loanId + " for " + patronId);
-        updateItemStatus(itemId, "01", "ITEM_STATUS_MISSING", routingContext);
+
+        // retrieve item for return, todo: refactor!
+        HttpClient httpClient2 = vertx.createHttpClient();
+        httpClient2.get(8081, SERVER, "/apis/items/" + itemId, response2 -> {
+          if (response2.statusCode() == 200) {
+            response2.bodyHandler(buffer -> {
+              item = Json.decodeValue(buffer.toString(), Item.class);
+              logger.info("Found item for return: " + item.getId());
+              updateItemStatus("03", "ITEM_STATUS_AVAILABLE", routingContext);
+            });
+          } else {
+            routingContext.response().setStatusCode(404).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+                .end("Could not find item for return with id " + itemId);
+          }
+        }).putHeader("content-type", "text/plain")
+            .putHeader("accept", "application/json")
+            .putHeader("authorization", authorization)
+            .end();
       } else {
         routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
             .end("Could not delete loan with id " + loanId);

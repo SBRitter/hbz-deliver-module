@@ -8,7 +8,7 @@ import hbz.LoanPermission;
 rule "Patron is active"
 when 
   $p : Patron(getStatus().equals("ACTIVE"))
-  $i : Item(getStatus().getValue().equals("01"))
+  $i : Item(getStatus().getValue().equals("03"))
   $l : LoanPermission()
 then
   $l.setPermitted(true);

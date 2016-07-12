@@ -1,0 +1,23 @@
+{
+  "barcode": "123456789",
+  "location": {
+    "value": "STACK",
+    "desc": "Stacks (STACK)"
+  },
+  "status": {
+    "value": "03",
+    "desc": "ITEM_STATUS_AVAILABLE"
+  },
+  "material_type": {
+    "value": "BOOK",
+    "desc": "Book",
+    "icon": "book.png"
+  },
+  "shelf_location": {
+    "classification_number": "756197419",
+    "shelf_listing_number": "852741963"
+  },
+  "copy_id": "1",
+  "item_link": "/bibs/99100383909999/item/1234567890009999",
+  "bib_id": "99100383909999"
+}
