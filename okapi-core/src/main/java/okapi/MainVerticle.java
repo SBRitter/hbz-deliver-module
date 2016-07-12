@@ -23,9 +23,11 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -73,6 +75,7 @@ public class MainVerticle extends AbstractVerticle {
   DeploymentManager deploymentManager;
   DiscoveryService discoveryService;
   DiscoveryManager discoveryManager;
+  ClusterManager clusterManager;
   private int port;
 
   // Little helper to get a config value
@@ -81,6 +84,10 @@ public class MainVerticle extends AbstractVerticle {
   // finally a default value
   static String conf(String key, String def, JsonObject c) {
     return System.getProperty(key, c.getString(key, def));
+  }
+
+  public void setClusterManager(ClusterManager mgr) {
+    clusterManager = mgr;
   }
 
   @Override
@@ -94,14 +101,19 @@ public class MainVerticle extends AbstractVerticle {
     port = Integer.parseInt(conf("port", "9130", config));
     int port_start = Integer.parseInt(conf("port_start", Integer.toString(port + 1), config));
     int port_end = Integer.parseInt(conf("port_end", Integer.toString(port_start + 10), config));
-    final String host = conf("host", "localhost", config);
 
+    if (clusterManager != null) {
+      logger.info("cluster NodeId " + clusterManager.getNodeID());
+    } else {
+      logger.info("clusterManager not in use");
+    }
+    final String host = conf("host", "localhost", config);
+    final String okapiUrl = conf("okapiurl", "http://localhost:" + port + "/", config);
     String storage = conf("storage", "inmemory", config);
     String loglevel = conf("loglevel", "", config);
     if (!loglevel.isEmpty()) {
       logHelper.setRootLogLevel(loglevel);
     }
-
     String mode = config.getString("mode", "cluster");
     switch (mode) {
       case "cluster":
@@ -121,6 +133,9 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     discoveryManager = new DiscoveryManager();
+    if (clusterManager != null) {
+      discoveryManager.set(clusterManager);
+    }
     if (enableDeployment) {
       Ports ports = new Ports(port_start, port_end);
       deploymentManager = new DeploymentManager(vertx, discoveryManager, host, ports, port);
@@ -146,7 +161,8 @@ public class MainVerticle extends AbstractVerticle {
       healthService = new HealthService();
       moduleManager = new ModuleManager(vertx);
       TenantStore tenantStore = null;
-      TenantManager tman = new TenantManager(moduleManager);
+      TenantManager tenantManager = new TenantManager(moduleManager);
+      moduleManager.setTenantManager(tenantManager);
 
       ModuleStore moduleStore = null;
       TimeStampStore timeStampStore = null;
@@ -169,9 +185,9 @@ public class MainVerticle extends AbstractVerticle {
       }
       logger.info("Proxy using " + storage + " storage");
       moduleWebService = new ModuleWebService(vertx, moduleManager, moduleStore, timeStampStore);
-      tenantWebService = new TenantWebService(vertx, tman, tenantStore);
+      tenantWebService = new TenantWebService(vertx, tenantManager, tenantStore);
 
-      proxyService = new ProxyService(vertx, moduleManager, tman, discoveryManager);
+      proxyService = new ProxyService(vertx, moduleManager, tenantManager, discoveryManager, okapiUrl);
     }
   }
 
@@ -307,7 +323,6 @@ public class MainVerticle extends AbstractVerticle {
       router.delete("/_/deployment/modules/:instid").handler(deploymentWebService::delete);
       router.getWithRegex("/_/deployment/modules").handler(deploymentWebService::list);
       router.get("/_/deployment/modules/:instid").handler(deploymentWebService::get);
-      router.put("/_/deployment/modules/:instid").handler(deploymentWebService::update);
     }
     if (discoveryService != null) {
       router.postWithRegex("/_/discovery/modules").handler(discoveryService::create);
@@ -321,27 +336,25 @@ public class MainVerticle extends AbstractVerticle {
       router.get("/_/discovery/nodes/:id").handler(discoveryService::getNode);
       router.getWithRegex("/_/discovery/nodes").handler(discoveryService::getNodes);
     }
-    
+
     if (System.getProperty("toys.sender") != null) {
       Sender sender = new Sender(vertx);
       router.get("/_/sender/:message").handler(sender::send);
     }
-    
+
     if (System.getProperty("toys.receiver") != null) {
       Receiver receiver = new Receiver(vertx);
     }
-    
+
     router.route("/_*").handler(this::NotFound);
-    
-    
-    
-    
-    
+
     //everything else gets proxified to modules
     if (proxyService != null) {
       router.route("/*").handler(proxyService::proxy);
     }
-    vertx.createHttpServer()
+    HttpServerOptions so = new HttpServerOptions()
+            .setHandle100ContinueAutomatically(true);
+    vertx.createHttpServer(so)
             .requestHandler(router::accept)
             .listen(port,
                     result -> {

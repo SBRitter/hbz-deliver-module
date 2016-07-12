@@ -9,9 +9,9 @@
     <artifactId>okapi</artifactId>
     <version>0.4-SNAPSHOT</version>
   </parent>
-  
+
   <artifactId>okapi-sample-module</artifactId>
-  
+
   <dependencies>
     <!-- logging see http://www.slf4j.org/legacy.html -->
     <!-- we use SLF4J for our logging interface -->
@@ -61,7 +61,7 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-  
+
   <build>
     <plugins>
       <plugin>
@@ -89,6 +89,14 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.spotify</groupId>
+        <artifactId>docker-maven-plugin</artifactId>
+        <configuration>
+          <skipDockerBuild>false</skipDockerBuild>
+          <skipDockerTag>false</skipDockerTag>
+        </configuration>
       </plugin>
     </plugins>
   </build>

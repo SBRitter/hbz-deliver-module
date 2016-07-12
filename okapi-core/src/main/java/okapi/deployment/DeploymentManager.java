@@ -36,8 +36,12 @@ import static okapi.util.ErrorType.*;
 import okapi.util.ExtendedAsyncResult;
 import okapi.util.Failure;
 import okapi.util.Success;
-import static okapi.util.OkapiEvents.*;
 
+/**
+ * Manages deployment of modules.
+ * This actually spawns processes and allocates ports for modules that are
+ * to be run. 
+ */
 public class DeploymentManager {
 
   private final Logger logger = LoggerFactory.getLogger("okapi");
@@ -65,30 +69,17 @@ public class DeploymentManager {
   }
 
   public void shutdown(Handler<ExtendedAsyncResult<Void>> fut) {
-    NodeDescriptor nd = new NodeDescriptor();
-    nd.setUrl("http://" + host + ":" + listenPort);
-    nd.setNodeId(host);
-    dm.removeNode(nd, res -> {
-      if (res.failed()) {
-        logger.warn("shutdown: " + res.cause().getMessage());
-      } else {
-        logger.info("shutdown in progress");
-      }
-      shutdownR(fut);
-    });
+    shutdownR(list.keySet().iterator(), fut);
   }
 
-  private void shutdownR(Handler<ExtendedAsyncResult<Void>> fut) {
-    Iterator<String> it = list.keySet().iterator();
+  private void shutdownR(Iterator<String> it, Handler<ExtendedAsyncResult<Void>> fut) {
     if (!it.hasNext()) {
       fut.handle(new Success<>());
     } else {
-      undeploy(it.next(), res -> {
-        if (res.failed()) {
-          fut.handle(new Failure<>(res.getType(), res.cause()));
-        } else {
-          shutdownR(fut);
-        }
+      DeploymentDescriptor md = list.get(it.next());
+      ModuleHandle mh = md.getModuleHandle();
+      mh.stop(future -> {
+        shutdownR(it, fut);
       });
     }
   }
@@ -115,6 +106,7 @@ public class DeploymentManager {
       id = host + "-" + use_port;
       md1.setInstId(id);
     }
+    logger.info("deploy instId " + id);
     ProcessDeploymentDescriptor descriptor = md1.getDescriptor();
     ProcessModuleHandle pmh = new ProcessModuleHandle(vertx, descriptor,
             ports, use_port);
@@ -124,7 +116,7 @@ public class DeploymentManager {
         DeploymentDescriptor md2
                 = new DeploymentDescriptor(md1.getInstId(), md1.getSrvcId(),
                         url, md1.getDescriptor(), mh);
-        md2.setNodeId(host);
+        md2.setNodeId(md1.getNodeId() != null ? md1.getNodeId() : host);
         list.put(md2.getInstId(), md2);
         tim.stop();
         dm.add(md2, res -> {
@@ -139,6 +131,7 @@ public class DeploymentManager {
   }
 
   public void undeploy(String id, Handler<ExtendedAsyncResult<Void>> fut) {
+    logger.info("undeploy instId " + id);
     if (!list.containsKey(id)) {
       fut.handle(new Failure<>(NOT_FOUND, "not found: " + id));
     } else {
@@ -178,50 +171,6 @@ public class DeploymentManager {
     } else {
       fut.handle(new Success<>(list.get(id)));
     }
-  }
-
-  public void update(DeploymentDescriptor md1, Handler<ExtendedAsyncResult<DeploymentDescriptor>> fut) {
-    String id = md1.getInstId();
-    if (!list.containsKey(id)) {
-      fut.handle(new Failure<>(USER, "not found: " + id));
-      return;
-    }
-    DeploymentDescriptor md0 = list.get(id);
-    int use_port = ports.get();
-    if (use_port == -1) {
-      fut.handle(new Failure<>(INTERNAL, "all ports in use"));
-      return;
-    }
-    Timer.Context tim = DropwizardHelper.getTimerContext("DeploymentManager." + id + ".update");
-    String url = "http://" + host + ":" + use_port;
-    ProcessDeploymentDescriptor descriptor = md1.getDescriptor();
-    ProcessModuleHandle pmh = new ProcessModuleHandle(vertx, descriptor,
-            ports, use_port);
-    ModuleHandle mh = pmh;
-    mh.start(future -> {
-      if (future.succeeded()) {
-        DeploymentDescriptor md2 = new DeploymentDescriptor(id, md1.getSrvcId(),
-                url, md1.getDescriptor(), mh);
-        md2.setNodeId(host);
-        ModuleHandle mh0 = md0.getModuleHandle();
-        mh0.stop(future0 -> {
-          if (future0.succeeded()) {
-            list.replace(id, md2);
-            tim.close();
-            fut.handle(new Success<>(md2));
-          } else {
-            // could not stop existing module. Return cause of it
-            mh.stop(future1 -> {
-              // we don't care whether stop of new module fails
-              fut.handle(new Failure<>(INTERNAL, future0.cause()));
-            });
-          }
-        });
-      } else {
-        ports.free(use_port);
-        fut.handle(new Failure<>(INTERNAL, future.cause()));
-      }
-    });
   }
 
 }

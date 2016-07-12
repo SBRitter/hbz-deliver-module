@@ -15,10 +15,6 @@
  */
 package okapi;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.graphite.Graphite;
-import com.codahale.metrics.graphite.GraphiteReporter;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.ClasspathXmlConfig;
 import com.hazelcast.config.FileSystemXmlConfig;
@@ -31,11 +27,7 @@ import io.vertx.core.VertxOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.spi.cluster.ClusterManager;
-import io.vertx.ext.dropwizard.DropwizardMetricsOptions;
 import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 import static java.lang.System.*;
 import static java.lang.Integer.*;
@@ -57,6 +49,7 @@ public class MainCluster {
     Config hConfig = null;
     JsonObject conf = new JsonObject();
     String clusterHost = null;
+    int clusterPort = -1;
 
     for (int i = 0; i < args.length; i++) {
       if (!args[i].startsWith("-")) {
@@ -73,6 +66,7 @@ public class MainCluster {
                   + "  -hazelcast-config-file file   Read config from local file\n"
                   + "  -hazelcast-config-url url     Read config from URL\n"
                   + "  -cluster-host ip              Vertx cluster host\n"
+                  + "  -cluster-port port            Vertx cluster port\n"
                   + "  -enable-metrics\n"
           );
           exit(0);
@@ -108,6 +102,9 @@ public class MainCluster {
       } else if ("-cluster-host".equals(args[i]) && i < args.length - 1) {
         i++;
         clusterHost = args[i];
+      } else if ("-cluster-port".equals(args[i]) && i < args.length - 1) {
+        i++;
+        clusterPort = Integer.parseInt(args[i]);
       } else if ("-enable-metrics".equals(args[i])) {
         i++;
         final String graphiteHost = getProperty("graphiteHost", "localhost");
@@ -141,7 +138,7 @@ public class MainCluster {
       }
       hConfig.setProperty("hazelcast.logging.type", "slf4j");
 
-      ClusterManager mgr = new HazelcastClusterManager(hConfig);
+      HazelcastClusterManager mgr = new HazelcastClusterManager(hConfig);
       vopt.setClusterManager(mgr);
       if (clusterHost != null) {
         logger.info("clusterHost=" + clusterHost);
@@ -149,12 +146,21 @@ public class MainCluster {
       } else {
         logger.warn("clusterHost not set");
       }
+      if (clusterPort != -1) {
+        logger.info("clusterPort=" + clusterPort);
+        vopt.setClusterPort(clusterPort);
+      } else {
+        logger.warn("clusterPort not set");
+      }
       vopt.setClustered(true);
+
       Vertx.clusteredVertx(vopt, res -> {
         if (res.succeeded()) {
           Vertx vertx = res.result();
           DeploymentOptions opt = new DeploymentOptions().setConfig(conf);
-          vertx.deployVerticle(MainVerticle.class.getName(), opt, dep -> {
+          MainVerticle v = new MainVerticle();
+          v.setClusterManager(mgr);
+          vertx.deployVerticle(v, opt, dep -> {
             if (dep.failed()) {
               exit(1);
             }

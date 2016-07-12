@@ -5,6 +5,9 @@
   "properties": {
     "id": {"type": "string"},
     "name": {"type": "string"},
+    "tags" : {"type" : ["array", "null"],
+      "items" : {"type": "string"}
+    },
     "provides" : {
       "type": ["array", "null"],
       "items" : {
@@ -38,9 +41,24 @@
           },
           "path": {"type": "string"},
           "level": {"type": "string"},
-          "type": {"type": "string"}
+          "type": {"type": "string"},
+          "permissionsRequired": {
+            "type": ["array","null"],
+            "items": {
+              "type": "string"
+            }
+          },
+          "permissionsDesired": {
+            "type": ["array","null"],
+            "items": {
+              "type": "string"
+            }
+          }
         }
       }
+    },
+    "uiDescriptor": {
+      "$ref": "UiModuleDescriptor.json"
     }
   },
   "required": ["id", "name", "routingEntries"]

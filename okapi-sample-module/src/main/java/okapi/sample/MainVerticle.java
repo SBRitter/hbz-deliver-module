@@ -18,6 +18,7 @@ package okapi.sample;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
@@ -36,12 +37,30 @@ public class MainVerticle extends AbstractVerticle {
     if (ctype != null && ctype.toLowerCase().contains("xml")) {
       xmlMsg = " (XML) ";
     }
-    final String hv = ctx.request().getHeader("X-my-header");
+    String hv = ctx.request().getHeader("X-my-header");
     if (hv != null) {
       xmlMsg += hv;
     }
-    final String xmlMsg2 = xmlMsg;
     ctx.response().putHeader("Content-Type", "text/plain");
+
+    // Report all headers back (in headers and in the body) if requested
+    String allh = ctx.request().getHeader("X-all-headers");
+    if (allh != null) {
+      for (String hdr : ctx.request().headers().names()) {
+        hv = ctx.request().getHeader(hdr);
+        if (hv != null) {
+          if (allh.contains("H")) {
+            ctx.response().putHeader(hdr, hv);
+          }
+          if (allh.contains("B")) {
+            xmlMsg += " " + hdr + ":" + hv;
+          }
+        }
+      }
+    }
+
+    final String xmlMsg2 = xmlMsg; // it needs to be final, in the callbacks
+
     if (ctx.request().method().equals(HttpMethod.GET)) {
       ctx.request().endHandler(x -> {
         ctx.response().end("It works" + xmlMsg2);
@@ -69,7 +88,9 @@ public class MainVerticle extends AbstractVerticle {
     router.get("/sample").handler(this::my_stream_handle);
     router.post("/sample").handler(this::my_stream_handle);
 
-    vertx.createHttpServer()
+    HttpServerOptions so = new HttpServerOptions()
+            .setHandle100ContinueAutomatically(true);
+    vertx.createHttpServer(so)
             .requestHandler(router::accept)
             .listen(
                     port,

@@ -17,21 +17,28 @@ package okapi.service;
 
 import com.codahale.metrics.Timer;
 import io.vertx.core.Handler;
+import io.vertx.core.MultiMap;
 import okapi.bean.ModuleInstance;
 import okapi.bean.Tenant;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.streams.ReadStream;
 import io.vertx.ext.web.RoutingContext;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import okapi.bean.DeploymentDescriptor;
 import okapi.bean.RoutingEntry;
 import okapi.discovery.DiscoveryManager;
@@ -42,23 +49,28 @@ import okapi.util.Failure;
 import static okapi.util.HttpResponse.*;
 import okapi.util.Success;
 
+/**
+ * Okapi's proxy service. Routes incoming requests to relevant modules, as
+ * enabled for the current tenant.
+ */
 public class ProxyService {
 
   private final Logger logger = LoggerFactory.getLogger("okapi");
 
-  private ModuleManager modules;
-  private HttpClient httpClient;
-  //private TenantWebService tenantService;
-  private TenantManager tenantService;
-  private DiscoveryManager dm;
-
+  private final ModuleManager modules;
+  private final HttpClient httpClient;
+  private final TenantManager tenantManager;
+  private final DiscoveryManager discoveryManager;
+  private final String okapiUrl;
   final private Vertx vertx;
 
-  public ProxyService(Vertx vertx, ModuleManager modules, TenantManager tm, DiscoveryManager dm) {
+  public ProxyService(Vertx vertx, ModuleManager modules, TenantManager tm,
+          DiscoveryManager dm, String okapiUrl) {
     this.vertx = vertx;
     this.modules = modules;
-    this.tenantService = tm;
-    this.dm = dm;
+    this.tenantManager = tm;
+    this.discoveryManager = dm;
+    this.okapiUrl = okapiUrl;
     this.httpClient = vertx.createHttpClient();
   }
 
@@ -84,8 +96,8 @@ public class ProxyService {
   private boolean match(RoutingEntry e, HttpServerRequest req) {
     if (req.uri().startsWith(e.getPath())) {
       String[] methods = e.getMethods();
-      for (int j = 0; j < methods.length; j++) {
-        if (methods[j].equals("*") || methods[j].equals(req.method().name())) {
+      for (String method : methods) {
+        if (method.equals("*") || method.equals(req.method().name())) {
           return true;
         }
       }
@@ -98,9 +110,9 @@ public class ProxyService {
     for (String s : modules.list()) {
       if (t.isEnabled(s)) {
         RoutingEntry[] rr = modules.get(s).getRoutingEntries();
-        for (int i = 0; i < rr.length; i++) {
-          if (match(rr[i], hreq)) {
-            ModuleInstance mi = new ModuleInstance(modules.get(s), rr[i]);
+        for (RoutingEntry rr1 : rr) {
+          if (match(rr1, hreq)) {
+            ModuleInstance mi = new ModuleInstance(modules.get(s), rr1);
             r.add(mi);
           }
         }
@@ -112,12 +124,38 @@ public class ProxyService {
     return r;
   }
 
+  // Get the auth bits from the module list into
+  // X-Okapi-Permissions-Required and X-Okapi-Permissions-Desired headers
+  private void authHeaders(List<ModuleInstance> modlist, MultiMap extraReqHeaders) {
+    Set<String> req = new HashSet<>();
+    Set<String> want = new HashSet<>();
+    for (ModuleInstance mod : modlist) {
+      RoutingEntry re = mod.getRoutingEntry();
+      String[] reqp = re.getPermissionsRequired();
+      if (reqp != null) {
+        req.addAll(Arrays.asList(reqp));
+      }
+      String[] wap = re.getPermissionsDesired();
+      if (wap != null) {
+        want.addAll(Arrays.asList(wap));
+      }
+    }
+    if (!req.isEmpty()) {
+      logger.debug("authHeaders:X-Okapi-Permissions-Required: " + String.join(",", req));
+      extraReqHeaders.add("X-Okapi-Permissions-Required", String.join(",", req));
+    }
+    if (!want.isEmpty()) {
+      logger.debug("authHeaders:X-Okapi-Permissions-Desired: " + String.join(",", want));
+      extraReqHeaders.add("X-Okapi-Permissions-Desired", String.join(",", want));
+    }
+  }
+
   private void resolveUrls(Iterator<ModuleInstance> it, Handler<ExtendedAsyncResult<Void>> fut) {
     if (!it.hasNext()) {
       fut.handle(new Success<>());
     } else {
       ModuleInstance mi = it.next();
-      dm.get(mi.getModuleDescriptor().getId(), res -> {
+      discoveryManager.get(mi.getModuleDescriptor().getId(), res -> {
         if (res.failed()) {
           fut.handle(new Failure<>(res.getType(), res.cause()));
         } else {
@@ -133,29 +171,58 @@ public class ProxyService {
     }
   }
 
+  void relayToResponse(HttpServerResponse hres, HttpClientResponse res) {
+    hres.setChunked(true);
+    hres.setStatusCode(res.statusCode());
+    hres.headers().addAll(res.headers());
+    hres.headers().remove("Content-Length");
+  }
+
+  static void relayToRequest(RoutingContext ctx, HttpClientResponse res) {
+    for (String s : res.headers().names()) {
+      if (s.startsWith("X-") || s.startsWith("x-")) {
+        final String v = res.headers().get(s);
+        ctx.request().headers().set(s, v);
+      }
+    }
+  }
+
+  private void log(HttpClientRequest creq) {
+    logger.debug(creq.method().name() + " " + creq.uri());
+    Iterator<Map.Entry<String, String>> iterator = creq.headers().iterator();
+    while (iterator.hasNext()) {
+      Map.Entry<String, String> next = iterator.next();
+      logger.debug(" " + next.getKey() + ":" + next.getValue());
+    }
+  }
+
   public void proxy(RoutingContext ctx) {
     String tenant_id = ctx.request().getHeader("X-Okapi-Tenant");
     if (tenant_id == null) {
       responseText(ctx, 403).end("Missing Tenant");
       return;
     }
-    Tenant tenant = tenantService.get(tenant_id);
+    ReadStream<Buffer> content = ctx.request();
+    Tenant tenant = tenantManager.get(tenant_id);
     if (tenant == null) {
       responseText(ctx, 400).end("No such Tenant " + tenant_id);
       return;
     }
-
+    // Pause the request data stream before doing any slow ops, otherwise
+    // it will get read into a buffer somewhere...
+    content.pause();
     String metricKey = "proxy." + tenant_id + "." + ctx.request().method() + "." + ctx.normalisedPath();
     DropwizardHelper.markEvent(metricKey);
 
     List<ModuleInstance> l = getModulesForRequest(ctx.request(), tenant);
+    ctx.request().headers().add("X-Okapi-Url", okapiUrl);
+    authHeaders(l, ctx.request().headers());
+
     resolveUrls(l.iterator(), res -> {
       if (res.failed()) {
         responseError(ctx, res.getType(), res.cause());
       } else {
         List<String> traceHeaders = new ArrayList<>();
-        ReadStream<Buffer> content = ctx.request();
-        content.pause();
         proxyR(ctx, l.iterator(), traceHeaders, content, null);
       }
     });
@@ -163,15 +230,12 @@ public class ProxyService {
 
   private void proxyRequestHttpClient(RoutingContext ctx,
           Iterator<ModuleInstance> it,
-          List<String> traceHeaders, Buffer bcontent,
-          ModuleInstance mi, Timer.Context timer) {
-
+          List<String> traceHeaders,
+          Buffer bcontent, ModuleInstance mi, Timer.Context timer) {
     HttpClientRequest c_req = httpClient.requestAbs(ctx.request().method(),
             mi.getUrl() + ctx.request().uri(), res -> {
               if (res.statusCode() < 200 || res.statusCode() >= 300) {
-                ctx.response().setChunked(true);
-                ctx.response().setStatusCode(res.statusCode());
-                ctx.response().headers().addAll(res.headers());
+                relayToResponse(ctx.response(), res);
                 makeTraceHeader(ctx, mi, res.statusCode(), timer, traceHeaders);
                 res.handler(data -> {
                   ctx.response().write(data);
@@ -186,11 +250,10 @@ public class ProxyService {
               } else if (it.hasNext()) {
                 makeTraceHeader(ctx, mi, res.statusCode(), timer, traceHeaders);
                 timer.close();
+                relayToRequest(ctx, res);
                 proxyR(ctx, it, traceHeaders, null, bcontent);
               } else {
-                ctx.response().setChunked(true);
-                ctx.response().setStatusCode(res.statusCode());
-                ctx.response().headers().addAll(res.headers());
+                relayToResponse(ctx.response(), res);
                 makeTraceHeader(ctx, mi, res.statusCode(), timer, traceHeaders);
                 res.endHandler(x -> {
                   timer.close();
@@ -209,21 +272,24 @@ public class ProxyService {
     c_req.setChunked(true);
     c_req.headers().setAll(ctx.request().headers());
     c_req.end(bcontent);
+    log(c_req);
   }
 
-  private void proxyRequestOnly(RoutingContext ctx,
-          Iterator<ModuleInstance> it, List<String> traceHeaders,
+  private void proxyRequestOnly(RoutingContext ctx, Iterator<ModuleInstance> it,
+          List<String> traceHeaders,
           ReadStream<Buffer> content, Buffer bcontent,
           ModuleInstance mi, Timer.Context timer) {
     if (bcontent != null) {
-      proxyRequestHttpClient(ctx, it, traceHeaders, bcontent, mi, timer);
+      proxyRequestHttpClient(ctx, it, traceHeaders,
+              bcontent, mi, timer);
     } else {
       final Buffer incoming = Buffer.buffer();
       content.handler(data -> {
         incoming.appendBuffer(data);
       });
       content.endHandler(v -> {
-        proxyRequestHttpClient(ctx, it, traceHeaders, incoming, mi, timer);
+        proxyRequestHttpClient(ctx, it, traceHeaders,
+                incoming, mi, timer);
         timer.close();
       });
       content.resume();
@@ -231,19 +297,21 @@ public class ProxyService {
   }
 
   private void proxyRequestResponse(RoutingContext ctx,
-          Iterator<ModuleInstance> it, List<String> traceHeaders,
-          ReadStream<Buffer> content, Buffer bcontent, ModuleInstance mi, Timer.Context timer) {
+          Iterator<ModuleInstance> it,
+          List<String> traceHeaders,
+          ReadStream<Buffer> content, Buffer bcontent,
+          ModuleInstance mi, Timer.Context timer) {
     HttpClientRequest c_req = httpClient.requestAbs(ctx.request().method(),
             mi.getUrl() + ctx.request().uri(), res -> {
               if (res.statusCode() >= 200 && res.statusCode() < 300
+              && res.getHeader("X-Okapi-stop") == null
               && it.hasNext()) {
                 makeTraceHeader(ctx, mi, res.statusCode(), timer, traceHeaders);
+                relayToRequest(ctx, res);
                 res.pause();
                 proxyR(ctx, it, traceHeaders, res, null);
               } else {
-                ctx.response().setChunked(true);
-                ctx.response().setStatusCode(res.statusCode());
-                ctx.response().headers().addAll(res.headers());
+                relayToResponse(ctx.response(), res);
                 makeTraceHeader(ctx, mi, res.statusCode(), timer, traceHeaders);
                 res.handler(data -> {
                   ctx.response().write(data);
@@ -279,17 +347,16 @@ public class ProxyService {
       });
       content.resume();
     }
+    log(c_req);
   }
 
-  private void proxyHeaders(RoutingContext ctx,
-          Iterator<ModuleInstance> it, List<String> traceHeaders,
+  private void proxyHeaders(RoutingContext ctx, Iterator<ModuleInstance> it,
+          List<String> traceHeaders,
           ReadStream<Buffer> content, Buffer bcontent, ModuleInstance mi, Timer.Context timer) {
     HttpClientRequest c_req = httpClient.requestAbs(ctx.request().method(),
             mi.getUrl() + ctx.request().uri(), res -> {
               if (res.statusCode() < 200 || res.statusCode() >= 300) {
-                ctx.response().setChunked(true);
-                ctx.response().setStatusCode(res.statusCode());
-                ctx.response().headers().addAll(res.headers());
+                relayToResponse(ctx.response(), res);
                 makeTraceHeader(ctx, mi, res.statusCode(), timer, traceHeaders);
                 res.handler(data -> {
                   ctx.response().write(data);
@@ -301,19 +368,12 @@ public class ProxyService {
                   logger.debug("proxyHeaders: res exception " + v.getMessage());
                 });
               } else if (it.hasNext()) {
-                for (String s : res.headers().names()) {
-                  if (s.startsWith("X-") || s.startsWith("x-")) {
-                    final String v = res.headers().get(s);
-                    ctx.request().headers().add(s, v);
-                  }
-                }
+                relayToRequest(ctx, res);
                 res.endHandler(x -> {
                   proxyR(ctx, it, traceHeaders, content, bcontent);
                 });
               } else {
-                ctx.response().setChunked(true);
-                ctx.response().setStatusCode(res.statusCode());
-                ctx.response().headers().addAll(res.headers());
+                relayToResponse(ctx.response(), res);
                 makeTraceHeader(ctx, mi, res.statusCode(), timer, traceHeaders);
                 if (bcontent == null) {
                   content.handler(data -> {
@@ -336,13 +396,15 @@ public class ProxyService {
       responseText(ctx, 500)
               .end("connect url " + mi.getUrl() + ": " + res.getMessage());
     });
-    // c_req.setChunked(true);
-    // c_req.headers().setAll(ctx.request().headers());
+    c_req.headers().setAll(ctx.request().headers());
+    c_req.headers().remove("Content-Length");
     c_req.end();
+    log(c_req);
   }
 
   private void proxyR(RoutingContext ctx,
-          Iterator<ModuleInstance> it, List<String> traceHeaders,
+          Iterator<ModuleInstance> it,
+          List<String> traceHeaders,
           ReadStream<Buffer> content, Buffer bcontent) {
     if (!it.hasNext()) {
       content.resume();
@@ -350,7 +412,6 @@ public class ProxyService {
       responseText(ctx, 404).end();
     } else {
       ModuleInstance mi = it.next();
-      final long timer2 = System.nanoTime();
       String tenantId = ctx.request().getHeader("X-Okapi-Tenant");
       if (tenantId == null || tenantId.isEmpty()) {
         tenantId = "???"; // Should not happen, we have validated earlier
@@ -359,15 +420,24 @@ public class ProxyService {
       Timer.Context timerContext = DropwizardHelper.getTimerContext(metricKey);
 
       String rtype = mi.getRoutingEntry().getType();
+      logger.debug("Invoking module " + mi.getModuleDescriptor().getName()
+              + " type " + rtype
+              + " level " + mi.getRoutingEntry().getLevel()
+              + " path " + mi.getRoutingEntry().getPath());
       if ("request-only".equals(rtype)) {
-        proxyRequestOnly(ctx, it, traceHeaders, content, bcontent, mi, timerContext);
+        proxyRequestOnly(ctx, it, traceHeaders,
+                content, bcontent, mi, timerContext);
       } else if ("request-response".equals(rtype)) {
-        proxyRequestResponse(ctx, it, traceHeaders, content, bcontent, mi, timerContext);
+        proxyRequestResponse(ctx, it, traceHeaders,
+                content, bcontent, mi, timerContext);
       } else if ("headers".equals(rtype)) {
-        proxyHeaders(ctx, it, traceHeaders, content, bcontent, mi, timerContext);
+        proxyHeaders(ctx, it, traceHeaders,
+                content, bcontent, mi, timerContext);
       } else {
         logger.warn("proxyR: bad rtype: " + rtype);
+        responseText(ctx, 500).end(); // Should not happen
       }
     }
   }
+
 } // class

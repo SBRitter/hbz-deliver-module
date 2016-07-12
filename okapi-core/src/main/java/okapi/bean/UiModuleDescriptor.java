@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Index Data
+ * Copyright (C) 2015 Index Data
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,28 +15,24 @@
  */
 package okapi.bean;
 
-/**
- * Health status for one module.
- */
-public class HealthModule {
+public class UiModuleDescriptor {
 
-  private String id;
-  private String status;
+  private String npm;
+  private String args;
 
-  public String getId() {
-    return id;
+  public String getNpm() {
+    return npm;
   }
 
-  public void setId(String id) {
-    this.id = id;
+  public void setNpm(String npm) {
+    this.npm = npm;
   }
 
-  public String getStatus() {
-    return status;
+  public String getArgs() {
+    return args;
   }
 
-  public void setStatus(String status) {
-    this.status = status;
+  public void setArgs(String args) {
+    this.args = args;
   }
-
 }

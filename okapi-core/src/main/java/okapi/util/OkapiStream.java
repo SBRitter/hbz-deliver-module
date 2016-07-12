@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Index Data
+ * Copyright (C) 2015 Index Data
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,30 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package okapi.bean;
+package okapi.util;
 
-/**
- * Health status for one module.
- */
-public class HealthModule {
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 
-  private String id;
-  private String status;
+public class OkapiStream {
 
-  public String getId() {
-    return id;
+  public static String toString(InputStream inputStream) {
+    ByteArrayOutputStream result = new ByteArrayOutputStream();
+    byte[] buffer = new byte[1024];
+    int length;
+    try {
+      while ((length = inputStream.read(buffer)) != -1) {
+        result.write(buffer, 0, length);
+      }
+    } catch (Exception ex) {
+    }
+    return result.toString();
   }
-
-  public void setId(String id) {
-    this.id = id;
-  }
-
-  public String getStatus() {
-    return status;
-  }
-
-  public void setStatus(String status) {
-    this.status = status;
-  }
-
 }

@@ -166,24 +166,12 @@ public class ModuleTest {
             c.getLastReport().toString());
 
     final String badDoc = "{" + LS
-            + "  \"name\" : \"BAD\"," + LS // the comma here makes it bad json!
+            + "  \"instId\" : \"BAD\"," + LS // the comma here makes it bad json!
             + "}";
     c = api.createRestAssured();
     c.given()
             .header("Content-Type", "application/json")
             .body(badDoc).post("/_/deployment/modules")
-            .then().statusCode(400);
-
-    c = api.createRestAssured();
-    c.given()
-            .header("Content-Type", "application/json")
-            .body(badDoc).post("/_/discovery/modules")
-            .then().statusCode(400);
-
-    c = api.createRestAssured();
-    c.given()
-            .header("Content-Type", "application/json")
-            .body(badDoc).post("/_/proxy/modules")
             .then().statusCode(400);
 
     final String docUnknownJar = "{" + LS
@@ -241,7 +229,8 @@ public class ModuleTest {
             + "    \"methods\" : [ \"*\" ]," + LS
             + "    \"path\" : \"/s\"," + LS
             + "    \"level\" : \"10\"," + LS
-            + "    \"type\" : \"request-response\"" + LS
+            + "    \"type\" : \"request-response\"," + LS
+            + "    \"permissionsDesired\" : [ \"auth.extra\" ]" + LS
             + "  }, {"
             + "    \"methods\" : [ \"POST\" ]," + LS
             + "    \"path\" : \"/login\"," + LS
@@ -249,6 +238,16 @@ public class ModuleTest {
             + "    \"type\" : \"request-response\"" + LS
             + "  } ]" + LS
             + "}";
+
+    // Check that we fail on unknown route types
+    final String docBadTypeModule
+            = docAuthModule.replaceAll("request-response", "UNKNOWN-ROUTE-TYPE");
+    c = api.createRestAssured();
+    c.given()
+            .header("Content-Type", "application/json")
+            .body(docBadTypeModule).post("/_/proxy/modules")
+            .then().statusCode(400);
+
     c = api.createRestAssured();
     r = c.given()
             .header("Content-Type", "application/json")
@@ -256,6 +255,7 @@ public class ModuleTest {
             .extract().response();
     Assert.assertTrue("raml: " + c.getLastReport().toString(),
             c.getLastReport().isEmpty());
+    final String locationAuthModule = r.getHeader("Location");
 
     final String docSampleDeployment = "{" + LS
             + "  \"srvcId\" : \"sample-module\"," + LS
@@ -282,7 +282,7 @@ public class ModuleTest {
             c.getLastReport().isEmpty());
 
     final String docSampleModuleBadRequire = "{" + LS
-            + "  \"srvcId\" : \"sample-module\"," + LS
+            + "  \"id\" : \"sample-module\"," + LS
             + "  \"name\" : \"sample module\"," + LS
             + "  \"requires\" : [ {" + LS
             + "    \"id\" : \"SOMETHINGWEDONOTHAVE\"," + LS
@@ -298,7 +298,7 @@ public class ModuleTest {
             .extract().response();
 
     final String docSampleModuleBadVersion = "{" + LS
-            + "  \"srvcId\" : \"sample-module\"," + LS
+            + "  \"id\" : \"sample-module\"," + LS
             + "  \"name\" : \"sample module\"," + LS
             + "  \"provides\" : [ {" + LS
             + "    \"id\" : \"sample\"," + LS
@@ -320,6 +320,7 @@ public class ModuleTest {
     final String docSampleModule = "{" + LS
             + "  \"id\" : \"sample-module\"," + LS
             + "  \"name\" : \"sample module\"," + LS
+            + "  \"tags\" : null," + LS
             + "  \"provides\" : [ {" + LS
             + "    \"id\" : \"sample\"," + LS
             + "    \"version\" : \"1.0.0\"" + LS
@@ -332,8 +333,11 @@ public class ModuleTest {
             + "    \"methods\" : [ \"GET\", \"POST\" ]," + LS
             + "    \"path\" : \"/sample\"," + LS
             + "    \"level\" : \"30\"," + LS
-            + "    \"type\" : \"request-response\"" + LS
-            + "  } ]" + LS
+            + "    \"type\" : \"request-response\"," + LS
+            + "    \"permissionsRequired\" : [ \"sample.needed\" ]," + LS
+            + "    \"permissionsDesired\" : [ \"sample.extra\" ]" + LS
+            + "  } ]," + LS
+            + "  \"uiDescriptor\" : null" + LS
             + "}";
 
     c = api.createRestAssured();
@@ -341,14 +345,13 @@ public class ModuleTest {
             .header("Content-Type", "application/json")
             .body(docSampleModule).post("/_/proxy/modules")
             .then()
-            //.log().all()
             .statusCode(201)
             .extract().response();
     Assert.assertTrue("raml: " + c.getLastReport().toString(),
             c.getLastReport().isEmpty());
     final String locationSampleModule = r.getHeader("Location");
 
-    c = api.createRestAssured();
+    c = api.createRestAssured(); // trailing slash is no good
     c.given().get("/_/proxy/modules/").then().statusCode(404);
 
     c = api.createRestAssured();
@@ -357,9 +360,30 @@ public class ModuleTest {
 
     c = api.createRestAssured();
     c.given()
-            .get(locationSampleModule).then().statusCode(200).body(equalTo(docSampleModule));
+            .get(locationSampleModule)
+            .then().statusCode(200).body(equalTo(docSampleModule));
     Assert.assertTrue("raml: " + c.getLastReport().toString(),
             c.getLastReport().isEmpty());
+
+    // Try to delete the auth module that our sample depends on
+    c.given().delete(locationAuthModule).then().statusCode(400);
+
+    // Try to update the auth module to a lower version, would break
+    // sample dependency
+    final String docAuthLowerVersion = docAuthModule.replace("1.2.3", "1.1.1");
+    c.given()
+            .header("Content-Type", "application/json")
+            .body(docAuthLowerVersion)
+            .put(locationAuthModule)
+            .then().statusCode(400);
+
+    // Update the auth module to a bit higher version
+    final String docAuthhigherVersion = docAuthModule.replace("1.2.3", "1.2.4");
+    c.given()
+            .header("Content-Type", "application/json")
+            .body(docAuthhigherVersion)
+            .put(locationAuthModule)
+            .then().statusCode(200);
 
     final String docTenantRoskilde = "{" + LS
             + "  \"id\" : \"" + okapiTenant + "\"," + LS
@@ -462,6 +486,11 @@ public class ModuleTest {
     Assert.assertTrue("raml: " + c.getLastReport().toString(),
             c.getLastReport().isEmpty());
 
+    // Try to disable the auth module for the tenant.
+    // Ought to fail, because it is needed by sample module
+    c.given().delete("/_/proxy/tenants/" + okapiTenant + "/modules/auth")
+            .then().statusCode(400);
+
     String docTenant = "{" + LS
             + "  \"id\" : \"" + okapiTenant + "\"," + LS
             + "  \"name\" : \"Roskilde-library\"," + LS
@@ -510,10 +539,30 @@ public class ModuleTest {
             .header("X-Okapi-Tenant", okapiTenant).post("/login")
             .then().statusCode(200).extract().header("X-Okapi-Token");
 
+    // Check that okapi sets up the permission headers
+    // Check also the X-Okapi-Url header in the same go
     given().header("X-Okapi-Tenant", okapiTenant)
             .header("X-Okapi-Token", okapiToken)
+            .header("X-all-headers", "H") // ask sample to report all headers
             .get("/sample")
-            .then().statusCode(200).body(equalTo("It works"));
+            .then().statusCode(200)
+            .header("X-Okapi-Permissions-Required", "sample.needed")
+            .header("X-Okapi-Url", "http://localhost:9130/")
+            .body(equalTo("It works"));
+    // Check only the required bit, since there is only one.
+    // There are wanted bits too, two of them, but their order is not
+    // well defined...
+
+    // Check the CORS headers
+    // The presence of the Origin header should provoke the two extra headers
+    given().header("X-Okapi-Tenant", okapiTenant)
+            .header("X-Okapi-Token", okapiToken)
+            .header("Origin", "http://foobar.com")
+            .get("/sample")
+            .then().statusCode(200)
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Expose-Headers", "Location,X-Okapi-Trace,X-Okapi-Token")
+            .body(equalTo("It works"));
 
     given().header("X-Okapi-Tenant", okapiTenant)
             .header("X-Okapi-Token", okapiToken)
@@ -771,8 +820,16 @@ public class ModuleTest {
     given().get("/_/deployment/modules/not_found")
             .then().statusCode(404);
 
+    given().get("/_/discovery/modules")
+            .then().statusCode(200)
+            .body(equalTo("[ ]"));
+
+    given().get("/_/discovery/modules/not_found")
+            .then().statusCode(404);
+
     final String doc1 = "{" + LS
             + "  \"srvcId\" : \"sample-module5\"," + LS
+            + "  \"nodeId\" : \"localhost\"," + LS
             + "  \"descriptor\" : {" + LS
             + "    \"exec\" : "
             + "\"java -Dport=%p -jar ../okapi-sample-module/target/okapi-sample-module-fat.jar\"" + LS
@@ -780,7 +837,7 @@ public class ModuleTest {
             + "}";
 
     given().header("Content-Type", "application/json")
-            .body(doc1).post("/_/deployment/modules/") // extra slash !
+            .body(doc1).post("/_/discovery/modules/") // extra slash !
             .then().statusCode(404);
 
     final String doc2 = "{" + LS
@@ -797,7 +854,7 @@ public class ModuleTest {
             + "}";
 
     r = given().header("Content-Type", "application/json")
-            .body(doc1).post("/_/deployment/modules")
+            .body(doc1).post("/_/discovery/modules")
             .then().statusCode(201)
             .body(equalTo(doc2))
             .extract().response();
@@ -824,6 +881,7 @@ public class ModuleTest {
             .log().ifError()
             .body(equalTo("[ " + doc2 + " ]"));
 
+    System.out.println("delete: " + locationSample5Deployment);
     given().delete(locationSample5Deployment).then().statusCode(204);
     locationSample5Deployment = null;
 
@@ -851,6 +909,7 @@ public class ModuleTest {
 
     final String doc1 = "{" + LS
             + "  \"srvcId\" : \"sample-module5\"," + LS
+            + "  \"nodeId\" : \"localhost\"," + LS
             + "  \"descriptor\" : {" + LS
             + "    \"exec\" : "
             + "\"java -Dport=%p -jar ../okapi-sample-module/target/okapi-sample-module-fat.jar\"" + LS
@@ -858,7 +917,7 @@ public class ModuleTest {
             + "}";
 
     r = given().header("Content-Type", "application/json")
-            .body(doc1).post("/_/deployment/modules")
+            .body(doc1).post("/_/discovery/modules")
             .then().statusCode(201)
             .extract().response();
     locationSample5Deployment = r.getHeader("Location");
@@ -866,6 +925,7 @@ public class ModuleTest {
 
     final String doc3 = "{" + LS
             + "  \"srvcId\" : \"header-module\"," + LS
+            + "  \"nodeId\" : \"localhost\"," + LS
             + "  \"descriptor\" : {" + LS
             + "    \"exec\" : "
             + "\"java -Dport=%p -jar ../okapi-header-module/target/okapi-header-module-fat.jar\"" + LS
@@ -873,7 +933,7 @@ public class ModuleTest {
             + "}";
 
     r = given().header("Content-Type", "application/json")
-            .body(doc3).post("/_/deployment/modules")
+            .body(doc3).post("/_/discovery/modules")
             .then().statusCode(201)
             .extract().response();
     locationHeaderDeployment = r.getHeader("Location");
@@ -944,6 +1004,9 @@ public class ModuleTest {
             .then().statusCode(200).body(equalTo("Hello foobar"))
             .extract().response();
 
+    given().delete("/_/proxy/tenants/" + okapiTenant + "/modules/sample-module5")
+            .then().statusCode(204);
+
     given().delete(locationSampleModule)
             .then().statusCode(204);
 
@@ -963,6 +1026,12 @@ public class ModuleTest {
             .extract().response();
     locationSampleModule = r.getHeader("Location");
 
+    given()
+            .header("Content-Type", "application/json")
+            .body(docEnableSample).post("/_/proxy/tenants/" + okapiTenant + "/modules")
+            .then().statusCode(200)
+            .body(equalTo(docEnableSample));
+
     given().header("X-Okapi-Tenant", okapiTenant)
             .body("bar").post("/sample")
             .then().statusCode(200).body(equalTo("Hello foobar"))
@@ -974,4 +1043,58 @@ public class ModuleTest {
     async.complete();
   }
 
+  @Test
+  public void testUiModule(TestContext context) {
+    async = context.async();
+    Response r;
+
+    RamlDefinition api = RamlLoaders.fromFile("src/main/raml").load("okapi.raml")
+            .assumingBaseUri("https://okapi.cloud");
+
+    final String docUiModuleInput = "{" + LS
+            + "  \"id\" : \"11-22-11-22-11\"," + LS
+            + "  \"name\" : \"sample-ui\"," + LS
+            + "  \"routingEntries\" : [ ]," + LS
+            + "  \"uiDescriptor\" : {" + LS
+            + "    \"npm\" : \"name-of-module-in-npm\"" + LS
+            + "  }" + LS
+            + "}";
+
+    final String docUiModuleOutput = "{" + LS
+            + "  \"id\" : \"11-22-11-22-11\"," + LS
+            + "  \"name\" : \"sample-ui\"," + LS
+            + "  \"tags\" : null," + LS
+            + "  \"provides\" : null," + LS
+            + "  \"requires\" : null," + LS
+            + "  \"routingEntries\" : [ ]," + LS
+            + "  \"uiDescriptor\" : {" + LS
+            + "    \"npm\" : \"name-of-module-in-npm\"," + LS
+            + "    \"args\" : null" + LS
+            + "  }" + LS
+            + "}";
+
+    RestAssuredClient c;
+
+    c = api.createRestAssured();
+    r = c.given()
+            .header("Content-Type", "application/json")
+            .body(docUiModuleInput).post("/_/proxy/modules").then().statusCode(201)
+            .body(equalTo(docUiModuleOutput)).extract().response();
+    Assert.assertTrue("raml: " + c.getLastReport().toString(),
+            c.getLastReport().isEmpty());
+
+    String location = r.getHeader("Location");
+
+    c = api.createRestAssured();
+    c.given()
+            .get(location)
+            .then().statusCode(200).body(equalTo(docUiModuleOutput));
+    Assert.assertTrue("raml: " + c.getLastReport().toString(),
+            c.getLastReport().isEmpty());
+
+    given().delete(location)
+            .then().statusCode(204);
+
+    async.complete();
+  }
 }
