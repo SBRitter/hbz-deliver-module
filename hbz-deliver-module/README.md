@@ -1,16 +1,16 @@
-hbz deliver prototype
+# hbz deliver prototype
 
-h3. Install lsp-apis-impl and run it with embedded MongoDB
+## Install lsp-apis-impl and run it with embedded MongoDB
 
 * Get the project: https://github.com/sling-incubator/lsp-apis-impl/
 * Build it (run `mvn clean install` in the subdirectory `domain-models-poc` of that project) 
 * Start it using: `java -jar circulation-fat.jar`(you're now using an embedded MongoDB)
 
-h3. Create demo data
+## Create demo data
 
 Change into the project root directory of hbz-deliver-module (e.g. okapi/hbz-deliver-module/)
 
-Create an item
+### Create an item
 
 ```
 curl -X POST http://localhost:8081/apis/items \
@@ -18,7 +18,7 @@ curl -X POST http://localhost:8081/apis/items \
 -d @item_sample.json -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
 ```
 
-Create a patron
+### Create a patron
 
 ```
 curl -X POST http://localhost:8081/apis/patrons \
@@ -26,13 +26,13 @@ curl -X POST http://localhost:8081/apis/patrons \
  -d @patron_sample.json -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
 ```
  
-h3. Build and run the deliver prototype
+## Build and run the deliver prototype
 
 Make sure, you're still in the project root directory of the deliver module
 mvn package
 java -jar target/hbz-deliver-module-fat.jar
 
-Loan item:
+### Loan item
 * Open browser an go to localhost:8080/deliver/loan
 * Enter the ids of the item and the patron you created before and click loan
 * If you don't know them, run the following to get them: 
@@ -51,7 +51,7 @@ curl -XGET http://localhost:8081/apis/items \
 -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
 ```
 
-List all loans of a patron and return item:
+#### List all loans of a patron and return item
 * Open browser an go to localhost:8080/deliver/listLoans
 * Enter the id of the patron you created the loan for
 * Click on return on a loan
