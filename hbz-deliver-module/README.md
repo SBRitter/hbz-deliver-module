@@ -51,7 +51,7 @@ curl -XGET http://localhost:8081/apis/items \
 -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
 ```
 
-#### List all loans of a patron and return item
+### List all loans of a patron and return item
 * Open browser an go to localhost:8080/deliver/listLoans
 * Enter the id of the patron you created the loan for
 * Click on return on a loan
