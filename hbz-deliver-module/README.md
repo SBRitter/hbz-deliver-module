@@ -33,7 +33,7 @@ mvn package
 java -jar target/hbz-deliver-module-fat.jar
 
 ### Loan item
-* Open browser an go to localhost:8080/deliver/loan
+* Open browser an go to `http://localhost:8080/deliver/loan`
 * Enter the ids of the item and the patron you created before and click loan
 * If you don't know them, run the following to get them: 
 
@@ -52,6 +52,6 @@ curl -XGET http://localhost:8081/apis/items \
 ```
 
 ### List all loans of a patron and return item
-* Open browser an go to localhost:8080/deliver/listLoans
+* Open browser an go to `http://localhost:8080/deliver/listLoans`
 * Enter the id of the patron you created the loan for
 * Click on return on a loan
