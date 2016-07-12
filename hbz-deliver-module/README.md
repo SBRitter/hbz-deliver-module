@@ -30,9 +30,9 @@ curl -X POST http://localhost:8081/apis/patrons \
  
 ## Build and run the deliver prototype
 
-Make sure, you're still in the project root directory of the deliver module
-mvn package
-java -jar target/hbz-deliver-module-fat.jar
+* Make sure, you're still in the project root directory of the deliver module
+* Build the project: `mvn package`
+* Run it: `java -jar target/hbz-deliver-module-fat.jar`
 
 ### Loan item
 * Open browser an go to `http://localhost:8080/deliver/loan`
