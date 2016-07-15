@@ -31,7 +31,7 @@ curl -X POST http://localhost:8081/apis/patrons \
 ## Build and run the deliver prototype
 
 * Make sure, you're still in the project root directory of the deliver module
-* Build the project: `mvn package`
+* Build the project: `mvn package -DskipTests`
 * Run it: `java -jar target/hbz-deliver-module-fat.jar`
 
 ### Loan item
@@ -57,3 +57,12 @@ curl -XGET http://localhost:8081/apis/items \
 * Open browser an go to `http://localhost:8080/deliver/listLoans`
 * Enter the id of the patron you created the loan for
 * Click on return on a loan
+
+## Testing
+
+You can run the tests using the following steps:
+* Run the lsp-apis-impl circulation module like desribed above with an embedded MongoDB (`java -jar circulation-fat.jar`)
+* Run the tests of the hbz deliver module: `mvn clean verify`
+* Stop the lsp-apis-impl circulation module (Ctrl+C)
+
+(Automatic start and stop of the circulation is planned)
