@@ -63,6 +63,18 @@
 			<version>3.2.1</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.jayway.restassured</groupId>
+			<artifactId>rest-assured</artifactId>
+			<version>2.4.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>2.0.0</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -75,6 +87,67 @@
 					<target>1.8</target>
 				</configuration>
 			</plugin>
+
+			<plugin>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>1.8</version>
+				<executions>
+
+					<!-- start deliver module -->
+					<execution>
+						<id>start-deliver-module</id>
+						<phase>pre-integration-test</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<exec executable="${java.home}/bin/java" dir="${project.build.directory}"
+									spawn="true">
+									<arg value="-jar" />
+									<arg value="${project.artifactId}-fat.jar" />
+									<arg value="--httpPort=8080" />
+								</exec>
+							</target>
+						</configuration>
+					</execution>
+
+					<!-- stop deliver module -->
+					<execution>
+						<id>stop-deliver-module</id>
+						<phase>post-integration-test</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<exec executable="bash" dir="${project.build.directory}"
+									spawn="false">
+									<arg value="-c" />
+									<arg
+										value="ps ax | grep -i 'hbz-deliver-module-fat' | awk 'NR==1{print $1}' | xargs kill -SIGTERM" />
+								</exec>
+							</target>
+						</configuration>
+					</execution>
+
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>2.18.1</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>

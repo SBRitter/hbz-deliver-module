@@ -38,25 +38,26 @@ public class DeliverTest {
     Delivery failingDelivery = new Delivery("ABC123", "DEF456");
     String failingDeliveryAsJson = Json.encode(failingDelivery);
     final Async async = context.async();
-    vertx.createHttpClient().post(8080, "localhost", "/deliver/loan/", response -> 
-      response.handler(body -> {
-        context.assertTrue(body.toString().contains("Could not find patron with id"));
-        async.complete();
-      })
-    ).end(failingDeliveryAsJson);
+    vertx.createHttpClient().post(8080, "localhost", "/deliver/loan/", response -> response.handler(body -> {
+      context.assertTrue(body.toString().contains("Could not find patron with id"));
+      async.complete();
+    })).end(failingDeliveryAsJson);
   }
-  
+
   @Test
   public void testFailingReturn(TestContext context) {
     ItemReturn failingReturn = new ItemReturn("XYZ789", "QQQ000");
     String failingReturnAsJson = Json.encode(failingReturn);
     final Async async = context.async();
-    vertx.createHttpClient().post(8080, "localhost", "/deliver/return/", response -> 
-      response.handler(body -> {
-        context.assertTrue(body.toString().contains("Did not find loan"));
-        async.complete();
-      })
-    ).end(failingReturnAsJson);
+    vertx.createHttpClient().post(8080, "localhost", "/deliver/return/", response -> response.handler(body -> {
+      context.assertTrue(body.toString().contains("Did not find loan"));
+      async.complete();
+    })).end(failingReturnAsJson);
+  }
+
+  @Test
+  public void dummyTest() {
+    System.out.println("I am a dummy test");
   }
 
 }
