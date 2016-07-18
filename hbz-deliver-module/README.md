@@ -16,7 +16,7 @@ Change into the project root directory of hbz-deliver-module (e.g. okapi/hbz-del
 
 ```
 curl -X POST http://localhost:8081/apis/items \
--H "Content-Type: text/plain" -H "Accept: text/plain" \
+-H "Content-Type: application/json" -H "Accept: application/json" \
 -d @item_sample.json -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
 ```
 
@@ -24,8 +24,8 @@ curl -X POST http://localhost:8081/apis/items \
 
 ```
 curl -X POST http://localhost:8081/apis/patrons \
- -H "Content-Type: text/plain" -H "Accept: text/plain" \
- -d @patron_sample.json -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
+-H "Content-Type: application/json" -H "Accept: application/json" \
+-d @patron_sample.json -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
 ```
  
 ## Build and run the deliver prototype
@@ -41,7 +41,7 @@ curl -X POST http://localhost:8081/apis/patrons \
 
 ```
 curl -XGET http://localhost:8081/apis/patrons \
--H "Content-Type: text/plain" -H "Accept: application/json" \
+-H "Accept: application/json" \
 -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
 ```
 
@@ -49,7 +49,7 @@ and
 
 ```
 curl -XGET http://localhost:8081/apis/items \
--H "Content-Type: text/plain" -H "Accept: application/json" \
+-H "Accept: application/json" \
 -H "Authorization: Bearer a2VybWl0Omtlcm1pdA=="
 ```
 
