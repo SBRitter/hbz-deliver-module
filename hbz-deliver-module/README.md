@@ -5,7 +5,7 @@
 * Get the project: https://github.com/sling-incubator/lsp-apis-impl/
 * Build it (run `mvn clean install` in the subdirectory `domain-models-poc` of that project) 
 * Go to the subdirectory circulation: `cd lsp-apis-impl/circulation`
-* Run it: `java -jar circulation-fat.jar`
+* Run it: `java -jar target/circulation-fat.jar`
 * You're now using an embedded MongoDB
 
 ## Create demo data
