@@ -30,6 +30,7 @@ import io.vertx.ext.web.templ.ThymeleafTemplateEngine;
 
 public class MainVerticle extends AbstractVerticle {
 
+  private static final int DATA_API_PORT = 8081;
   private static final String PATRON_API = "/apis/patrons/";
   private static final String SERVER = "localhost";
   Delivery delivery;
@@ -80,7 +81,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void retrievePatron(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, SERVER, PATRON_API + patronId, response -> {
+    httpClient.get(DATA_API_PORT, SERVER, PATRON_API + patronId, response -> {
       if (response.statusCode() == 200) {
         response.bodyHandler(buffer -> {
           patron = Json.decodeValue(buffer.toString(), Patron.class);
@@ -99,7 +100,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void retrieveItem(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, SERVER, "/apis/items/" + itemId, response -> {
+    httpClient.get(DATA_API_PORT, SERVER, "/apis/items/" + itemId, response -> {
       if (response.statusCode() == 200) {
         response.bodyHandler(buffer -> {
           item = Json.decodeValue(buffer.toString(), Item.class);
@@ -137,7 +138,7 @@ public class MainVerticle extends AbstractVerticle {
     HttpClient httpClient = vertx.createHttpClient();
     loan = createLoanObject();
     String loanAsJson = Json.encode(loan);
-    httpClient.post(8081, SERVER, PATRON_API + patronId + "/loans/", response -> {
+    httpClient.post(DATA_API_PORT, SERVER, PATRON_API + patronId + "/loans/", response -> {
       if (response.statusCode() == 201) {
         response.bodyHandler(buffer -> {
           loan = Json.decodeValue(buffer.toString(), Loan.class);
@@ -164,7 +165,7 @@ public class MainVerticle extends AbstractVerticle {
     status.setDesc(statusDescription);
     item.setStatus(status);
     String itemAsJson = Json.encode(item);
-    httpClient.put(8081, SERVER, "/apis/items/" + itemId, response -> {
+    httpClient.put(DATA_API_PORT, SERVER, "/apis/items/" + itemId, response -> {
       if (response.statusCode() == 204) {
         logger.info("Updated item status for item " + itemId);
         routingContext.response().setStatusCode(200)
@@ -203,7 +204,7 @@ public class MainVerticle extends AbstractVerticle {
     patronId = itemReturn.getPatron();
     loanId = itemReturn.getLoan();
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, SERVER, PATRON_API + patronId + "/loans/" + loanId, response -> {
+    httpClient.get(DATA_API_PORT, SERVER, PATRON_API + patronId + "/loans/" + loanId, response -> {
       if (response.statusCode() == 200) {
         response.bodyHandler(buffer -> {
           loan = Json.decodeValue(buffer.toString(), Loan.class);
@@ -224,13 +225,13 @@ public class MainVerticle extends AbstractVerticle {
   private void deleteLoanForPatron(RoutingContext routingContext) {
     logger.info("Deleting loan " + loanId + " for patron " + patronId);
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.delete(8081, SERVER, PATRON_API + patronId + "/loans/" + loanId, response -> {
+    httpClient.delete(DATA_API_PORT, SERVER, PATRON_API + patronId + "/loans/" + loanId, response -> {
       if (response.statusCode() == 204) {
         logger.info("Deleted loan " + loanId + " for " + patronId);
 
         // retrieve item for return, todo: refactor!
         HttpClient httpClient2 = vertx.createHttpClient();
-        httpClient2.get(8081, SERVER, "/apis/items/" + itemId, response2 -> {
+        httpClient2.get(DATA_API_PORT, SERVER, "/apis/items/" + itemId, response2 -> {
           if (response2.statusCode() == 200) {
             response2.bodyHandler(buffer -> {
               item = Json.decodeValue(buffer.toString(), Item.class);
@@ -259,7 +260,7 @@ public class MainVerticle extends AbstractVerticle {
   private void getLoansForPatron(RoutingContext routingContext) {
     patronId = routingContext.request().getParam("patronId");
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(8081, SERVER, PATRON_API + patronId + "/loans", response -> response.bodyHandler(buffer -> {
+    httpClient.get(DATA_API_PORT, SERVER, PATRON_API + patronId + "/loans", response -> response.bodyHandler(buffer -> {
       try {
         JSONObject bufferAsJson = new JSONObject(buffer.toString());
         JSONArray loans = bufferAsJson.getJSONArray("loans");
