@@ -58,6 +58,19 @@ curl -XGET http://localhost:8081/apis/items \
 * Enter the id of the patron you created the loan for
 * Click on return on a loan
 
+## Deploy in Okapi
+
+You can use the okapi_deploy_script in the project root directory to deploy the module on Okapi. This script uses the two files deliver-module-deploy.json and deliver-module-proxy.json. Note that you probably need to alter the tenant to enable the module for within the script. 
+
+If you call the UI via your browser after you deployed the module on Okapi through https://localhost:9130/loan and http://localhost:9130/listLoans, you have to somehow pass a tenant (this is required for anything done on Okapi). This can be done with a Firefox Addon called Http Header Mangler (https://github.com/disptr/httpheadermangler). You pass a file located somewhere in your filesystem. In this file, place the following lines:
+
+```
+localhost
+X-Okapi-Tenant=your-tenant
+```
+
+Now everytime localhost is called, the additional header "X-Okapi-Tenant" will be sent.
+
 ## Testing
 
 You can run the tests using the following steps:
