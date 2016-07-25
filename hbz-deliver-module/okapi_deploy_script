@@ -13,29 +13,15 @@ curl -w '\n' -X POST -D -   \
    http://localhost:9130/_/proxy/modules
 
 # Create tenant
-cat > /tmp/tenant_hbz.json <<END
-{
-  "id" : "hbz",
-  "name" : "hbz",
-  "description" : "Hochschulbibliothekszentrum"
-}
-END
-
 curl -w '\n' -X POST -D - \
   -H "Content-type: application/json" \
-  -d @/tmp/tenant_hbz.json  \
+  -d '{  "id" : "hbz", "name" : "hbz",  "description" : "Hochschulbibliothekszentrum" }' \
   http://localhost:9130/_/proxy/tenants
 
 # Enable module for tenant
-cat > /tmp/enabletenant1.json <<END
-{
-  "id" : "hbz-deliver-module"
-}
-END
-
 curl -w '\n' -X POST -D - \
   -H "Content-type: application/json" \
-  -d @/tmp/enabletenant1.json  \
+  -d '{ "id" : "hbz-deliver-module" }' \
   http://localhost:9130/_/proxy/tenants/hbz/modules
 
 
