@@ -1,0 +1,14 @@
+{
+  "id" : "circulation",
+  "name" : "circulation",
+  "provides" : [ {
+    "id" : "circulation",
+    "version" : "0.0.1"
+  } ],
+  "routingEntries" : [ {
+    "methods" : [ "GET", "POST", "PUT", "DELETE" ],
+    "path" : "/apis",
+    "level" : "30",
+    "type" : "request-response"
+  } ]
+}

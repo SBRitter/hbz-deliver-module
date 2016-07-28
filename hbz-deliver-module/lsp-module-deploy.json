@@ -1,0 +1,6 @@
+{
+  "srvcId" : "circulation",
+  "descriptor" : {
+    "exec" : "java -jar ../lsp-apis-impl/circulation/target/circulation-fat.jar http.port=%p"
+   }
+}
