@@ -30,11 +30,11 @@ import io.vertx.ext.web.templ.ThymeleafTemplateEngine;
 
 public class MainVerticle extends AbstractVerticle {
 
-	private String dataApiServer = "localhost";
-	private int dataApiPort = 9130;
-	private String patronApi = "/apis/patrons/";
-	private String itemApi = "/apis/items/";
-	private String tenant = "hbz";
+	private String dataApiServer;
+	private int dataApiPort;
+	private String patronApi;
+	private String itemApi;
+	private String tenant;
 
 	private Delivery delivery;
 	private String patronId;
@@ -51,17 +51,17 @@ public class MainVerticle extends AbstractVerticle {
 	private final Logger logger = LoggerFactory.getLogger("hbz-deliver-module");
 	private final ThymeleafTemplateEngine engine = ThymeleafTemplateEngine.create();
 
-//	private void initConfiguration() {
-//		dataApiServer = config().getString("data.api.server", "localhost");
-//		//dataApiPort = config().getInteger("data.api.port", 8081);
-//		patronApi = config().getString("data.api.patrons", "/apis/patrons/");
-//		itemApi = config().getString("data.api.items", "/apis/items/");
-//		tenant = config().getString("data.api.tenant", "hbz");
-//	}
+	private void initConfiguration() {
+		dataApiServer = config().getString("data.api.server", "localhost");
+		dataApiPort = config().getInteger("data.api.port", 9130);
+		patronApi = config().getString("data.api.patrons", "/apis/patrons/");
+		itemApi = config().getString("data.api.items", "/apis/items/");
+		tenant = config().getString("data.api.tenant", "hbz");
+	}
 
 	@Override
 	public void start(Future<Void> fut) {
-//		initConfiguration();
+		initConfiguration();
 		Router router = Router.router(vertx);
 		final int port = Integer.parseInt(System.getProperty("port", "8080"));
 		router.route("/deliver*").handler(BodyHandler.create());
