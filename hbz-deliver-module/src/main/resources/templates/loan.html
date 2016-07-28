@@ -50,6 +50,9 @@
 					type: "POST",
 					url: "/deliver/loan",
 					data: deliveryString,
+					headers: {
+        				"X-Okapi-Tenant":"hbz",
+    			    },
 					success: function(message){
 						$('#success').text(message);
 						$('#success').fadeIn(500);
