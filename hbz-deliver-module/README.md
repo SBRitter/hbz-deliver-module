@@ -5,7 +5,8 @@ Note: this is work in progress, so far this module only works for one tenant, ca
 ## Setup and run Okapi
 
 ```
-# clone this fork (best cd to some directory where you store projects that will be used in this guide, like ~/code/ or ~/git/)
+# clone this fork (best cd to some directory where you store projects that 
+# will be used in this guide, like ~/code/ or ~/git/)
 git clone https://github.com/SBRitter/okapi.git
 
 # checkout the feature branch, build and run okapi 
@@ -53,7 +54,8 @@ mvn clean install -DskipTests
 cd ../circulation
 mvn clean install -DskipTests
 
-# Go back to the directory of the hbz-deliver-module and run the deploy script for the lsp-apis-impl circulation submodule. This will deploy the lsp-apis-impl circulation module on Okapi.
+# Go back to the directory of the hbz-deliver-module and run the deploy script for the 
+# lsp-apis-impl circulation submodule. This will deploy the lsp-apis-impl circulation module on Okapi.
 cd ../../okapi/hbz-deliver-module
 ./okapi_deploy_script_lsp
 ```
