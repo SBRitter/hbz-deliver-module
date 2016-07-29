@@ -28,7 +28,7 @@ import okapi.bean.DeploymentDescriptor;
 import okapi.bean.NodeDescriptor;
 import okapi.util.ModuleHandle;
 import okapi.bean.Ports;
-import okapi.bean.ProcessDeploymentDescriptor;
+import okapi.bean.LaunchDescriptor;
 import okapi.discovery.DiscoveryManager;
 import okapi.util.DropwizardHelper;
 import okapi.util.ProcessModuleHandle;
@@ -40,7 +40,7 @@ import okapi.util.Success;
 /**
  * Manages deployment of modules.
  * This actually spawns processes and allocates ports for modules that are
- * to be run. 
+ * to be run.
  */
 public class DeploymentManager {
 
@@ -107,7 +107,7 @@ public class DeploymentManager {
       md1.setInstId(id);
     }
     logger.info("deploy instId " + id);
-    ProcessDeploymentDescriptor descriptor = md1.getDescriptor();
+    LaunchDescriptor descriptor = md1.getDescriptor();
     ProcessModuleHandle pmh = new ProcessModuleHandle(vertx, descriptor,
             ports, use_port);
     ModuleHandle mh = pmh;

@@ -15,12 +15,14 @@ managing and running microservices.
     * [Status Codes](#status-codes)
     * [Header Merging Rules](#header-merging-rules)
     * [Versioning and Dependencies](#versioning-and-dependencies)
+    * [Security](#security)
     * [Open Issues](#open-issues)
 * [Implementation](#implementation)
     * [Missing features](#missing-features)
 * [Compiling and Running](#compiling-and-running)
 * [Using Okapi](#using-okapi)
     * [Storage](#storage)
+    * [Curl examples](#curl-examples)
     * [Example modules](#example-modules)
     * [Running Okapi itself](#running-okapi-itself)
     * [Deploying Modules](#deploying-modules)
@@ -77,7 +79,7 @@ allow for app store features in which services or groups of services
 ## Architecture
 
 Web service endpoints in Okapi can be, roughly, divided into two
-parts: (1) general modules and tenant management APIs, sometimes
+parts: (1) general module and tenant management APIs, sometimes
 referred to as 'core' - initially part of Okapi itself but potentially
 separable into their own services  - and (2) endpoints for accessing
 module-provided, business-logic specific interfaces, e.g. Patron
@@ -111,18 +113,25 @@ endpoints are:
 The special prefix `/_` is used to to distinguish the routing for Okapi
 internal web services from the extension points provided by modules.
 
-The `/_/deployment` endpoint is responsible for deploying modules.
-In a clustered environment there should be one instance of it running on
-every node. It will be responsible for starting processes on that node,
-and allocating network addresses for the various service modules.
+ * The `/_/proxy` endpoint is used for configuring the proxying service:
+   specifying which modules we know of, how their requests are to be
+   routed, which tenants we know about, and which modules are enabled for
+   which tenants.
 
-The `/_/discovery` endpoint manages the mapping from service IDs to network
-addresses on the cluster. Information is posted to it, and the proxy service
-will query it to find where the needed modules are actually available.
+ * The `/_/deployment` endpoint is responsible for deploying modules.
+   In a clustered environment there should be one instance of the
+   deployment service running on
+   each node. It will be responsible for starting processes on that node,
+   and allocating network addresses for the various service modules.
 
-The `/_/proxy` endpoint is for configuring the proxying service, including
-which modules we know of, how their requests are to be routed, which tenants
-we know about, and which modules are enabled for which tenants.
+ * The `/_/discovery` endpoint manages the mapping from service IDs to network
+   addresses on the cluster. Information is posted to it, and the proxy service
+   will query it to find where the needed modules are actually available. It also
+   offers shortcuts for deploying and registering a module in one
+   go. There is only a single discovery endpoint covering all of the
+   nodes in a cluster. Requests to the discovery service can also deploy
+   modules on specific nodes, so it is rarely necessary to invoke
+   deployment directly.
 
 These three parts are coded as separate services, so that it will be possible
 to use alternative deployment and discovery methods, if the chosen clustering
@@ -174,7 +183,7 @@ Those _native modules_ require an additional descriptor
 file, the
 [`DeploymentDescriptor.json`](../okapi-core/src/main/raml/DeploymentDescriptor.json),
 which specifies the low-level information
-about how to run the module. Also, `native modules` must be packaged according
+about how to run the module. Also, native modules must be packaged according
 to one of the packaging options supported by Okapi's deployment service: at
 this point that means providing the executable (and all dependencies) on each
 node or using on a self-contained Docker image to distribute the executable
@@ -220,6 +229,24 @@ We assume some external management program will be making these requests.  It
 can not be a proper Okapi module itself, because it needs to be running before
 any modules have been deployed. For testing, see
 [the curl command-line examples later in this document](#using-okapi).
+
+The `/_/discovery` endpoint offers a shortcut to deploy a module at the same time
+as registering it. If the DeploymentDescriptor contains a nodeId, we assume
+that the module is to be deployed on that node. If the DeploymentDescriptor
+contains a LaunchDescriptor, this is used for starting the process. If not,
+Okapi fetches the ModuleDescriptor that has been registred with the
+proxy module, and if that
+contains a LaunchDescriptor, it will be used. This way, we can adapt to what
+ever deployment needs the installation will have.
+
+Note that the deployment and discovery stuff is transient, Okapi does not store
+any of that in its database. If a node goes down, the processes on it will die
+too. When it gets restarted, modules need to be deployed on it again, either via
+Okapi, or through some other means.
+
+The discovery data is kept in a shared map, so as long as there is one Okapi
+running on the cluster, the map will survive. But if the whole cluster is taken
+down, the discovery data is lost. It would be fairly useless at that point anyway.
 
 ### Request Processing
 
@@ -308,7 +335,7 @@ terminates the entire chain and returns the code back to the caller.
 
 Since Okapi forwards the response from a previous module on to the
 next module in the pipeline (e.g. for additional filtering/processing),
-certain initial request headers become invalid - e.g. when a 
+certain initial request headers become invalid - e.g. when a
 module converts the entity to a different content type or changes its
 size. Invalid headers need to be updated, based on the module's
 response header values, before the request can be forwarded to the
@@ -427,7 +454,7 @@ For example, a patron module could have permissions like
     permissionsRequired: [ "patron.read" ],
     permissionsDesired: [ "patron.read.sensitive" ]
 This states that if the user does not have the "patron.read" permission, the
-auth module should reject the request immediately. If that test passes, the auth 
+auth module should reject the request immediately. If that test passes, the auth
 module will check the "patron.read.sensitive" permission, and set up a response
 header to indicate if the user has that permission or not. This gets passed to
 the patron module, which can then decide what fields it wants to show or hide.
@@ -454,7 +481,7 @@ implementation details will be established within the coming months.
 
 In a microservices architecture, monitoring is key to ensure robustness
 and health of the entire system. The way to provide useful monitoring
-is to include well defined instrumentation points ("hooks") before and
+is to include well-defined instrumentation points ("hooks") before and
 after each step of execution of the request processing
 pipeline. Besides monitoring, instrumentation is crucial for the
 ability to quickly diagnose issues in the running system ("hot"
@@ -509,7 +536,9 @@ The latest source of the software can be found at
 [GitHub](https://github.com/sling-incubator/okapi). At the moment the
 repository is not publicly visible.
 
-Build Requirements are
+<!-- TODO - Use the public address, when we have one -->
+
+The build requirements are:
 
  * Apache Maven 3.1.1 or later.
  * Java 8 JDK
@@ -523,22 +552,26 @@ cd okapi
 mvn install
 ```
 
+<!-- TODO - Use the public address, when we have one -->
+
 The install rule also runs a few tests. Tests should not fail.
-If they do, please report it and in the meantime fall back to
+If they do, please report it and in the meantime fall back to:
+
 ```
 mvn install -DskipTests
 ```
 
 If successful, the output of `mvn install` should have this line near
 the end:
+
 ```
 [INFO] BUILD SUCCESS
 ```
 
-The okapi directory contains a few sub modules. These are
+The okapi directory contains a few sub modules. These are:
 
  * `okapi-core`: the gateway server itself
- * `doc`: documentation, including the guide
+ * `doc`: documentation, including this guide
  * `okapi-auth`: a simple module demonstrating authentication
  * `okapi-sample-module`: a module mangling HTTP content
  * `okapi-header-module`: a module to test headers-only mode
@@ -582,8 +615,8 @@ For remote debugging you can use
 ```
 mvn exec:exec@debug
 ```
-This command format requires Maven >= 3.3.1. Will listen for a
-debugging client at port 5005.
+This command requires Maven >= 3.3.1. It will listen for a
+debugging client on port 5005.
 
 ## Using Okapi
 
@@ -602,6 +635,24 @@ course in real life we will want some of our data to persist from one invocation
 to the next. At the moment, MongoDB storage can be enabled by adding the
 option `-Dstorage=mongo` to the command line that starts Okapi.
 
+### Curl examples
+
+The following examples can be pasted into a command line console. It
+is also possible to extract all the example records with a perl
+one-liner, assuming you have this MarkDown source of this guide in the
+current directory as _guide.md_ -- as is the case in the source tree.
+
+```
+perl -n -e  'print if /^cat /../^END/;' guide.md  | sh
+```
+It is also possible to run all the examples with a slightly more complex command:
+```
+perl -n -e  'print if /^curl /../http/; ' guide.md |
+  grep -v 8080 | grep -v DELETE |
+  sh -x
+```
+This explicitly omits the cleaning up DELETE commands, so it leaves Okapi in a
+well-defined state with a few modules enabled for a few known tenants.
 
 ### Example modules
 
@@ -754,7 +805,7 @@ structure of module metadata and POST it to Okapi
 ```
 cat > /tmp/sampledeploy.json <<END
 {
-  "srvcId" : "sample-module",
+  "srvcId" : "sample",
   "descriptor" : {
     "exec" : "java -Dport=%p -jar okapi-sample-module/target/okapi-sample-module-fat.jar"
    }
@@ -818,7 +869,7 @@ Content-Length: 295
 
 [ {
   "instId" : "localhost-9131",
-  "srvcId" : "sample-module",
+  "srvcId" : "sample",
   "nodeId" : "localhost",
   "url" : "http://localhost:9131",
   "descriptor" : {
@@ -852,12 +903,12 @@ Okapi deployment registers the module with discovery automatically.
 
 Now we need to inform the proxy that we have a sample module that can
 be enabled for tenants. The proxy is interested in the service identifier (srvcId), so
-we pass "sample-module" to it.
+we pass "sample" to it.
 
 ```
 cat > /tmp/sampleproxy.json <<END
   {
-    "id" : "sample-module",
+    "id" : "sample",
     "name" : "okapi sample module",
     "provides" : [ {
       "id" : "sample",
@@ -881,11 +932,11 @@ curl -w '\n' -X POST -D -   \
 
 HTTP/1.1 201 Created
 Content-Type: application/json
-Location: /_/proxy/modules/sample-module
-Content-Length: 392
+Location: /_/proxy/modules/module
+Content-Length: 464
 
 {
-  "id" : "sample-module",
+  "id" : "sample",
   "name" : "okapi sample module",
     "provides" : [ {
       "id" : "sample",
@@ -898,7 +949,9 @@ Content-Length: 392
     "level" : "30",
     "type" : "request-response",
     "permissionsRequired" : [ "sample.needed" ],
-    "permissionsDesired" : [ "sample.extra" ]
+    "permissionsDesired" : [ "sample.extra" ],
+    "uiDescriptor" : null,
+    "launchDescriptor" : null
   } ]
 }
 
@@ -923,49 +976,17 @@ permissions, and refuses the request if not. (The present dummy
 authentication module does not do this kind of check, as it has no
 user database to work with.)
 
+Since this is an Okapi module, not a UI module, we don't need any UI descriptors.
+
+The launchDescriptor could be used for an easier way to deploy the module. More
+about that below.
 
 #### Deploying and proxying the auth module
 
-The first steps are very similar to the sample module. First we deploy the
-module:
-
-```
-cat > /tmp/authdeploy.json <<END
-{
-  "srvcId" : "auth",
-  "descriptor" : {
-    "exec" : "java -Dport=%p -jar okapi-auth/target/okapi-auth-fat.jar"
-   }
-}
-END
-
-curl -w '\n' -D - -s \
-  -X POST \
-  -H "Content-type: application/json" \
-  -d @/tmp/authdeploy.json  \
-  http://localhost:9130/_/deployment/modules
-
-HTTP/1.1 201 Created
-Content-Type: application/json
-Location: /_/deployment/modules/localhost-9132
-Content-Length: 264
-
-{
-  "instId" : "localhost-9134",
-  "srvcId" : "auth",
-  "nodeId" : "localhost",
-  "url" : "http://localhost:9134",
-  "descriptor" : {
-    "cmdlineStart" : null,
-    "cmdlineStop" : null,
-    "exec" : "java -Dport=%p -jar okapi-auth/target/okapi-auth-fat.jar"
-  }
-}
-```
-
-Finally we tell the proxy about it. This is a bit different from the
-same operation for the sample module: we add version dependencies and
-more routing info:
+We could do the same thing with the auth module. But there is an easier way. We
+simply register the module to the proxy, even without having it running. Then
+we tell discovery that we want it, and it will go and deploy it for us. This is
+more like the way things will work once we have our app store implemented.
 
 ```
 cat > /tmp/authmodule.json <<END
@@ -990,11 +1011,13 @@ cat > /tmp/authmodule.json <<END
     "path" : "/login",
     "level" : "20",
     "type" : "request-response"
-  } ]
+  } ],
+ "launchDescriptor" : {
+    "exec" : "java -Dport=%p -jar okapi-auth/target/okapi-auth-fat.jar"
+  }
 }
 END
 ```
-
 For the purposes of this example, we specify that the `auth` module requires
 the `sample` module to be available, and at least version 2.2.1. You can
 try to see what happens if you require different versions, like 1.9.9,
@@ -1011,6 +1034,9 @@ directed to a higher-level module that does the actual work. In this
 way, supporting modules like authentication or logging can be tied to
 some or all requests.
 
+Note that we specify in the launchDescriptor how this module is supposed to
+be started.
+
 Then we post it as before:
 
 ```
@@ -1024,12 +1050,12 @@ And should see
 ```
 HTTP/1.1 201 Created
 Location: /_/proxy/modules/auth
-Content-Length: 547
+Content-Length: 737
 
 {
- "id" : "auth",
+  "id" : "auth",
   "name" : "auth",
-  "url" : null,
+  "tags" : null,
   "provides" : [ {
     "id" : "auth",
     "version" : "3.4.5"
@@ -1042,7 +1068,7 @@ Content-Length: 547
     "methods" : [ "*" ],
     "path" : "/",
     "level" : "10",
-    "type" : "request-response",
+    "type" : "headers",
     "permissionsRequired" : null,
     "permissionsDesired" : null
   }, {
@@ -1052,14 +1078,65 @@ Content-Length: 547
     "type" : "request-response",
     "permissionsRequired" : null,
     "permissionsDesired" : null
-  } ]
+  } ],
+  "uiDescriptor" : null,
+  "launchDescriptor" : {
+    "cmdlineStart" : null,
+    "cmdlineStop" : null,
+    "exec" : "java -Dport=%p -jar okapi-auth/target/okapi-auth-fat.jar"
+  }
 }
 ```
+
+At this point Okapi knows that we have an auth module. It has stored the info
+in its database, so in theory it is persistent. In practice we are running our
+Okapi in 'dev' mode, which uses a volatile in-memory database.
+
+Now we need to deploy the module, and tell the discovery that we have it
+running. This can be done in one request. Note that we post this to /_/discovery,
+it will talk to /_/deployment on the correct node - which in this case is
+`localhost`, the machine we are running our demo on.
+
+
+```
+cat > /tmp/authdeploy.json <<END
+{
+  "srvcId" : "auth",
+  "nodeId" : "localhost",
+  "descriptor" : null
+}
+END
+
+curl -w '\n' -D - -s \
+  -X POST \
+  -H "Content-type: application/json" \
+  -d @/tmp/authdeploy.json  \
+  http://localhost:9130/_/discovery/modules
+
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /_/discovery/modules/localhost-9132
+Content-Length: 264
+
+{
+  "instId" : "localhost-9132",
+  "srvcId" : "auth",
+  "nodeId" : "localhost",
+  "url" : "http://localhost:9132",
+  "descriptor" : {
+    "cmdlineStart" : null,
+    "cmdlineStop" : null,
+    "exec" : "java -Dport=%p -jar okapi-auth/target/okapi-auth-fat.jar"
+  }
+}
+```
+
 
 Now we have two modules, as can be seen with
 
 ```
 curl -w '\n' http://localhost:9130/_/proxy/modules
+curl -w '\n' http://localhost:9130/_/discovery/modules
 ```
 
 but we still can not use them in the way that they would be used in a real
@@ -1144,7 +1221,7 @@ module, without enabling the auth module.
 ```
 cat > /tmp/enabletenant1.json <<END
 {
-  "id" : "sample-module"
+  "id" : "sample"
 }
 END
 
@@ -1187,12 +1264,12 @@ and indeed the sample module says that _it works_.
 
 For the other tenant, we want to require that only authenticated users
 can access the `sample` module. So we need to enable both
-`sample-module` and `auth` for it:
+`sample` and `auth` for it:
 
 ```
 cat > /tmp/enabletenant2a.json <<END
 {
-  "id" : "sample-module"
+  "id" : "sample"
 }
 END
 
@@ -1287,13 +1364,14 @@ These are left as an exercise for the reader.
 
 ### Cleaning up
 Now we can clean up some things
+
 ```
-curl -X DELETE -w '\n'  -D - http://localhost:9130/_/proxy/modules/sample-module
-curl -X DELETE -w '\n'  -D - http://localhost:9130/_/proxy/modules/auth
 curl -X DELETE -w '\n'  -D - http://localhost:9130/_/proxy/tenants/our
 curl -X DELETE -w '\n'  -D - http://localhost:9130/_/proxy/tenants/other
-curl -X DELETE -w '\n'  -D - http://localhost:9130/_/deployment/modules/localhost-9132
-curl -X DELETE -w '\n'  -D - http://localhost:9130/_/deployment/modules/localhost-9131
+curl -X DELETE -w '\n'  -D - http://localhost:9130/_/proxy/modules/sample
+curl -X DELETE -w '\n'  -D - http://localhost:9130/_/proxy/modules/auth
+curl -X DELETE -w '\n'  -D - http://localhost:9130/_/discovery/modules/auth/localhost-9132
+curl -X DELETE -w '\n'  -D - http://localhost:9130/_/discovery/modules/sample/localhost-9131
 
 ```
 Okapi responds to each of these with a simple

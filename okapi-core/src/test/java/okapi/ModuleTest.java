@@ -54,7 +54,7 @@ public class ModuleTest {
   private final String okapiTenant = "roskilde";
   private HttpClient httpClient;
   private static final String LS = System.lineSeparator();
-  private int port = Integer.parseInt(System.getProperty("port", "9130"));
+  private final int port = Integer.parseInt(System.getProperty("port", "9130"));
 
   public ModuleTest() {
   }
@@ -75,9 +75,11 @@ public class ModuleTest {
 
   @After
   public void tearDown(TestContext context) {
+    logger.info("Cleaning up after ModuleTest");
     async = context.async();
     td(context);
   }
+
 
   public void td(TestContext context) {
     if (locationAuthDeployment != null) {
@@ -124,6 +126,40 @@ public class ModuleTest {
     vertx.close(x -> {
       async.complete();
     });
+  }
+  /**
+   * Check that the tests have not left anything in the database.
+   * Since the @Tests are run in a nondeterministic order, each
+   * ought to clean up after itself. This should be called in the
+   * beginning and end of each @Test
+   * @param context
+   */
+  private void checkDbIsEmpty(String label, TestContext context) {
+
+    logger.debug("Db check " + label );
+    // Check that we are not depending on td() to undeploy modules
+    Assert.assertNull("locationAuthDeployment", locationAuthDeployment);
+    Assert.assertNull("locationSampleDeployment",locationSampleDeployment);
+    Assert.assertNull("locationSample5Deployment",locationSample5Deployment);
+    Assert.assertNull("locationHeaderDeployment",locationHeaderDeployment);
+
+    String emptyListDoc = "[ ]";
+
+    given().get("/_/deployment/modules").then()
+      .log().ifError().statusCode(200)
+      .body(equalTo(emptyListDoc));
+
+    given().get("/_/discovery/nodes").then()
+      .log().ifError().statusCode(200); // we still have a node!
+    given().get("/_/discovery/modules").then()
+      .log().ifError().statusCode(200).body(equalTo(emptyListDoc));
+
+    given().get("/_/proxy/modules").then()
+      .log().ifError().statusCode(200).body(equalTo(emptyListDoc));
+    given().get("/_/proxy/tenants").then()
+      .log().ifError().statusCode(200).body(equalTo(emptyListDoc));
+    logger.debug("Db check " + label + " done");
+
   }
 
   @Test
@@ -292,7 +328,7 @@ public class ModuleTest {
             + "}";
 
     c = api.createRestAssured();
-    r = c.given()
+    c.given()
             .header("Content-Type", "application/json")
             .body(docSampleModuleBadRequire).post("/_/proxy/modules").then().statusCode(400)
             .extract().response();
@@ -312,7 +348,7 @@ public class ModuleTest {
             + "}";
 
     c = api.createRestAssured();
-    r = c.given()
+    c.given()
             .header("Content-Type", "application/json")
             .body(docSampleModuleBadVersion).post("/_/proxy/modules").then().statusCode(400)
             .extract().response();
@@ -337,9 +373,14 @@ public class ModuleTest {
             + "    \"permissionsRequired\" : [ \"sample.needed\" ]," + LS
             + "    \"permissionsDesired\" : [ \"sample.extra\" ]" + LS
             + "  } ]," + LS
-            + "  \"uiDescriptor\" : null" + LS
+            + "  \"uiDescriptor\" : null," + LS
+            + "  \"launchDescriptor\" : {" + LS
+            + "    \"cmdlineStart\" : null," + LS
+            + "    \"cmdlineStop\" : null," + LS
+            + "    \"exec\" : \"/usr/bin/false\"" + LS
+            + "  }" + LS
             + "}";
-
+    logger.debug(docSampleModule);
     c = api.createRestAssured();
     r = c.given()
             .header("Content-Type", "application/json")
@@ -350,6 +391,7 @@ public class ModuleTest {
     Assert.assertTrue("raml: " + c.getLastReport().toString(),
             c.getLastReport().isEmpty());
     final String locationSampleModule = r.getHeader("Location");
+
 
     c = api.createRestAssured(); // trailing slash is no good
     c.given().get("/_/proxy/modules/").then().statusCode(404);
@@ -580,13 +622,24 @@ public class ModuleTest {
             .delete("/sample")
             .then().statusCode(202);
 
+    // Check that we don't do prefix matching
+    given().header("X-Okapi-Tenant", okapiTenant)
+            .header("X-Okapi-Token", okapiToken)
+            .get("/sampleXXX")
+            .then().statusCode(404);
+    // Check that parameters don't mess with the routing
+    given().header("X-Okapi-Tenant", okapiTenant)
+            .header("X-Okapi-Token", okapiToken)
+            .get("/sample?p=parameters&q=query")
+            .then().statusCode(200);
+
     // 2nd sample module.. We only create it in discovery and give it same URL as
     // for sample-module (first one)
     c = api.createRestAssured();
     final String docSample2Deployment = "{" + LS
             + "  \"instId\" : \"sample2-inst\"," + LS
             + "  \"srvcId\" : \"sample-module2\"," + LS
-            + "  \"nodeId\" : \"localhost\"," + LS
+            + "  \"nodeId\" : null," + LS  // no nodeId, we aren't deploying on any node
             + "  \"url\" : \"http://localhost:9132\"" + LS
             + "}";
     r = c.given()
@@ -669,13 +722,15 @@ public class ModuleTest {
             + "  \"srvcId\" : \"sample-module3\"," + LS
             + "  \"url\" : \"http://localhost:9132\"" + LS
             + "}";
-    c.given()
+    r = c.given()
             .header("Content-Type", "application/json")
             .body(docSample3Deployment).post("/_/discovery/modules")
             .then()
             .statusCode(201).extract().response();
     Assert.assertTrue("raml: " + c.getLastReport().toString(),
             c.getLastReport().isEmpty());
+    final String locationSample3Inst = r.getHeader("Location");
+    logger.debug("Deployed: locationSample3Inst " + locationSample3Inst);
 
     final String docSample3Module = "{" + LS
             + "  \"id\" : \"sample-module3\"," + LS
@@ -798,11 +853,26 @@ public class ModuleTest {
             .get("/sample")
             .then().statusCode(404); // because sample2 was removed
 
+
     c = api.createRestAssured();
     c.given().delete(locationTenantRoskilde)
             .then().statusCode(204);
     Assert.assertTrue("raml: " + c.getLastReport().toString(),
             c.getLastReport().isEmpty());
+
+    // Clean up, so the next test starts with a clean slate
+    logger.debug("testproxy cleaning up");
+    given().delete(locationSample3Inst).then().log().ifError().statusCode(204);
+    given().delete(locationSample3Module).then().log().ifError().statusCode(204);
+    given().delete("/_/proxy/modules/sample-module").then().log().ifError().statusCode(204);
+    given().delete("/_/proxy/modules/sample-module2").then().log().ifError().statusCode(204);
+    given().delete("/_/proxy/modules/auth").then().log().ifError().statusCode(204);
+    given().delete(locationAuthDeployment).then().log().ifError().statusCode(204);
+    locationAuthDeployment = null;
+    given().delete(locationSampleDeployment).then().log().ifError().statusCode(204);
+    locationSampleDeployment = null;
+
+    checkDbIsEmpty("testproxy done", context);
 
     async.complete();
   }
@@ -810,7 +880,6 @@ public class ModuleTest {
   @Test
   public void testDeployment(TestContext context) {
     async = context.async();
-
     Response r;
 
     given().get("/_/deployment/modules")
@@ -898,16 +967,97 @@ public class ModuleTest {
     given().get("/_/discovery/modules/UNKNOWN-MODULE")
             .then().statusCode(404);
 
+    // Deploy a module via its own LaunchDescriptor
+    final String docSampleModule = "{" + LS
+      + "  \"id\" : \"sample-module-depl\"," + LS
+      + "  \"name\" : \"sample module for deployment test\"," + LS
+      + "  \"tags\" : null," + LS
+      + "  \"provides\" : [ {" + LS
+      + "    \"id\" : \"sample\"," + LS
+      + "    \"version\" : \"1.0.0\"" + LS
+      + "  } ]," + LS
+      + "  \"routingEntries\" : [ {" + LS
+      + "    \"methods\" : [ \"GET\", \"POST\" ]," + LS
+      + "    \"path\" : \"/sample\"," + LS
+      + "    \"level\" : \"30\"," + LS
+      + "    \"type\" : \"request-response\"" + LS
+      + "  } ]," + LS
+      + "  \"uiDescriptor\" : null," + LS
+      + "  \"launchDescriptor\" : {" + LS
+      + "    \"cmdlineStart\" : null," + LS
+      + "    \"cmdlineStop\" : null," + LS
+      + "    \"exec\" : \"java -Dport=%p -jar ../okapi-sample-module/target/okapi-sample-module-fat.jar\"" + LS
+      + "  }" + LS
+      + "}";
+
+    RamlDefinition api = RamlLoaders.fromFile("src/main/raml").load("okapi.raml")
+            .assumingBaseUri("https://okapi.cloud");
+
+    RestAssuredClient c;
+
+    c = api.createRestAssured();
+    r = c.given()
+      .header("Content-Type", "application/json")
+      .body(docSampleModule).post("/_/proxy/modules")
+      .then()
+      //.log().all()
+      .statusCode(201)
+      .extract().response();
+    Assert.assertTrue("raml: " + c.getLastReport().toString(),
+            c.getLastReport().isEmpty());
+    final String locationSampleModule = r.getHeader("Location");
+
+    final String docDeploy = "{" + LS
+            + "  \"srvcId\" : \"sample-module-depl\"," + LS
+            + "  \"nodeId\" : \"localhost\"," + LS
+            + "  \"descriptor\" : null" + LS
+            + "}";
+    final String DeployResp = "{" + LS
+    +"  \"instId\" : \"localhost-9131\"," + LS
+    +"  \"srvcId\" : \"sample-module-depl\"," + LS
+    +"  \"nodeId\" : \"localhost\"," + LS
+    +"  \"url\" : \"http://localhost:9131\"," + LS
+    +"  \"descriptor\" : {" + LS
+    +"    \"cmdlineStart\" : null," + LS
+    +"    \"cmdlineStop\" : null," + LS
+    +"    \"exec\" : \"java -Dport=%p -jar ../okapi-sample-module/target/okapi-sample-module-fat.jar\"" + LS
+    +"  }" + LS
+    +"}";
+
+    r = given().header("Content-Type", "application/json")
+            .body(docDeploy).post("/_/discovery/modules")
+            .then().statusCode(201)
+            .body(equalTo(DeployResp))
+            .extract().response();
+    locationSample5Deployment = r.getHeader("Location");
+
+    // Would be nice to verify that the module works, but too much hazzle with
+    // tenants etc
+
+    // Undeploy
+    given().delete(locationSample5Deployment)
+      .then().statusCode(204);
+    // Undeploy again, to see it is gone
+    given().delete(locationSample5Deployment)
+      .then().statusCode(404);
+    locationSample5Deployment = null;
+
+    // and delete from the proxy
+    given().delete(locationSampleModule)
+      .then().statusCode(204);
+
+    checkDbIsEmpty("testDeployment done", context);
     async.complete();
   }
 
   @Test
   public void testHeader(TestContext context) {
     async = context.async();
+
     Response r;
     ValidatableResponse then;
 
-    final String doc1 = "{" + LS
+    final String docLaunch1 = "{" + LS
             + "  \"srvcId\" : \"sample-module5\"," + LS
             + "  \"nodeId\" : \"localhost\"," + LS
             + "  \"descriptor\" : {" + LS
@@ -917,13 +1067,12 @@ public class ModuleTest {
             + "}";
 
     r = given().header("Content-Type", "application/json")
-            .body(doc1).post("/_/discovery/modules")
+            .body(docLaunch1).post("/_/discovery/modules")
             .then().statusCode(201)
             .extract().response();
     locationSample5Deployment = r.getHeader("Location");
-    final String doc2 = r.asString();
 
-    final String doc3 = "{" + LS
+    final String docLaunch2 = "{" + LS
             + "  \"srvcId\" : \"header-module\"," + LS
             + "  \"nodeId\" : \"localhost\"," + LS
             + "  \"descriptor\" : {" + LS
@@ -933,7 +1082,7 @@ public class ModuleTest {
             + "}";
 
     r = given().header("Content-Type", "application/json")
-            .body(doc3).post("/_/discovery/modules")
+            .body(docLaunch2).post("/_/discovery/modules")
             .then().statusCode(201)
             .extract().response();
     locationHeaderDeployment = r.getHeader("Location");
@@ -951,7 +1100,7 @@ public class ModuleTest {
             .header("Content-Type", "application/json")
             .body(docSampleModule).post("/_/proxy/modules").then().statusCode(201)
             .extract().response();
-    String locationSampleModule = r.getHeader("Location");
+    final String locationSampleModule = r.getHeader("Location");
 
     final String docHeaderModule = "{" + LS
             + "  \"id\" : \"header-module\"," + LS
@@ -1024,7 +1173,7 @@ public class ModuleTest {
             .header("Content-Type", "application/json")
             .body(docSampleModule2).post("/_/proxy/modules").then().statusCode(201)
             .extract().response();
-    locationSampleModule = r.getHeader("Location");
+    final String locationSampleModule2 = r.getHeader("Location");
 
     given()
             .header("Content-Type", "application/json")
@@ -1037,8 +1186,21 @@ public class ModuleTest {
             .then().statusCode(200).body(equalTo("Hello foobar"))
             .extract().response();
 
+    logger.debug("testHeader cleaning up");
+    given().delete(locationTenantRoskilde)
+            .then().statusCode(204);
     given().delete(locationSampleModule)
             .then().statusCode(204);
+    given().delete(locationSample5Deployment)
+            .then().statusCode(204);
+    locationSample5Deployment = null;
+    given().delete(locationHeaderDeployment)
+            .then().statusCode(204);
+    locationHeaderDeployment = null;
+    given().delete(locationHeaderModule)
+            .then().statusCode(204);
+
+    checkDbIsEmpty("testHeader done", context);
 
     async.complete();
   }
@@ -1070,7 +1232,8 @@ public class ModuleTest {
             + "  \"uiDescriptor\" : {" + LS
             + "    \"npm\" : \"name-of-module-in-npm\"," + LS
             + "    \"args\" : null" + LS
-            + "  }" + LS
+            + "  }," + LS
+            + "  \"launchDescriptor\" : null" + LS
             + "}";
 
     RestAssuredClient c;
@@ -1094,6 +1257,7 @@ public class ModuleTest {
 
     given().delete(location)
             .then().statusCode(204);
+    checkDbIsEmpty("testUiModule done", context);
 
     async.complete();
   }
