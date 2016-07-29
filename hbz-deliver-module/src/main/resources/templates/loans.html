@@ -42,7 +42,9 @@
 				$('#success').hide();
 				$('#error').hide();
 			});
-			$('#getLoansButton').click(function() {
+			$('#getLoansButton').click(buildTable);			
+			
+		    function buildTable(event) {
 				$('.table').empty();
 				$.ajax({
 					type: "GET",
@@ -56,15 +58,16 @@
 						tr = $('<tr/>');
 						tr.append("<th>loan id</th>");
 						tr.append("<th>item id</th>");
-						tr.append("<th>title</th>");
+						tr.append("<th>due date</th>");
 						tr.append("<th>actions</th>");
 						$('table').append(tr);
 						for (var i = 0; i < loanArray.length; i++) {
 							tr = $('<tr/>');
 							tr.append("<td>" + loanArray[i]._id + "</td>");
-							tr.append("<td>" + loanArray[i].item_id + "</td>");
-							tr.append("<td>" + loanArray[i].title + "</td>");
-							tr.append("<td><button type='button' class='btn btn-primary return-button'>return</button></td>");
+							tr.append("<td>" + loanArray[i].item_id + "</td>");	
+							var dueDate = new Date(loanArray[i].due_date * 1000);				
+							tr.append("<td>" +  dueDate.toString("MMM dd") + "</td>");
+							tr.append("<td><button type='button' class='btn btn-danger return-button'>return</button>&nbsp<button type='button' class='btn btn-warning renew-button'>renew</button></td>");
 							$('table').append(tr);
 						}
 						$('.return-button').click(function() {
@@ -91,13 +94,37 @@
 								}
 							});
 						});
+						$('.renew-button').click(function() {						    
+							var returnJson = new Object();
+							returnJson.patron = $('#patronId').val();
+							var thisRow = $(this).closest("tr");
+							returnJson.loan = thisRow.find("td").eq(0).text();
+							var returnString = JSON.stringify(returnJson);
+							$.ajax({
+								type: "POST",
+								url: "/deliver/renew",
+								data: returnString,
+								headers: {
+        							"X-Okapi-Tenant":"hbz",
+    							},
+								success: function(message){									
+									buildTable();
+									$('#success').text(message);
+									$('#success').fadeIn(500);
+								},
+								error: function(XMLHttpRequest, textStatus, errorThrown) {
+									$('#error').text(XMLHttpRequest.responseText);
+									$('#error').fadeIn(500);
+								}
+							});
+						});
 					},
 					error: function(XMLHttpRequest, textStatus, errorThrown) {
 						$('#error').text(XMLHttpRequest.responseText);
 						$('#error').fadeIn(500);
 					}
 				});
-			})
+			}
 		});
 		/*]]>*/
 	</script>

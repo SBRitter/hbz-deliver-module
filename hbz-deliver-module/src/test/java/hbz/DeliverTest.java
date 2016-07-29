@@ -46,7 +46,7 @@ public class DeliverTest {
 
   @Test
   public void testFailingReturn(TestContext context) {
-    ItemReturn failingReturn = new ItemReturn("XYZ789", "QQQ000");
+    ReturnRenewal failingReturn = new ReturnRenewal("XYZ789", "QQQ000");
     String failingReturnAsJson = Json.encode(failingReturn);
     final Async async = context.async();
     vertx.createHttpClient().post(8080, "localhost", "/deliver/return/", response -> response.handler(body -> {

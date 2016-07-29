@@ -68,6 +68,7 @@ public class MainVerticle extends AbstractVerticle {
 		router.get("/deliver/loan").handler(this::showLoanScreen);
 		router.post("/deliver/loan").handler(this::loan);
 		router.post("/deliver/return").handler(this::returnItem);
+		router.post("/deliver/renew").handler(this::renew);
 		router.get("/deliver/loans/:patronId").handler(this::getLoansForPatron);
 		router.get("/deliver/listLoans").handler(this::showLoanListScreen);
 		vertx.createHttpServer().requestHandler(router::accept).listen(port, result -> {
@@ -151,7 +152,6 @@ public class MainVerticle extends AbstractVerticle {
 			if (response.statusCode() == 201) {
 				response.bodyHandler(buffer -> {
 					loan = Json.decodeValue(buffer.toString(), Loan.class);
-					logger.info(buffer.toString());
 					logger.info("Created loan with id " + loan.getId() + " for patron " + patronId);
 				});
 				itemId = item.getId();
@@ -185,12 +185,13 @@ public class MainVerticle extends AbstractVerticle {
 
 	}
 
+	//  This is just a dummy implementation to create a loan quickly
 	private Loan createLoanObject() {
 		Loan newLoan = new Loan();
 		newLoan.setPatronId(patronId);
 		newLoan.setItemBarcode(item.getBarcode());
 		newLoan.setItemId(item.getId());
-		newLoan.setDueDate((int) System.currentTimeMillis() + (86400 * 7 * 1000));
+		newLoan.setDueDate((int)(System.currentTimeMillis()/1000 + 1209600));
 		newLoan.setItemPolicy(new ItemPolicy());
 		newLoan.setCircDesk(new CircDesk());
 		newLoan.setLoanStatus("loanStatus");
@@ -204,7 +205,7 @@ public class MainVerticle extends AbstractVerticle {
 	}
 
 	private void returnItem(RoutingContext routingContext) {
-		final ItemReturn itemReturn = Json.decodeValue(routingContext.getBodyAsString(), ItemReturn.class);
+		final ReturnRenewal itemReturn = Json.decodeValue(routingContext.getBodyAsString(), ReturnRenewal.class);
 		patronId = itemReturn.getPatron();
 		loanId = itemReturn.getLoan();
 		HttpClient httpClient = vertx.createHttpClient();
@@ -278,5 +279,67 @@ public class MainVerticle extends AbstractVerticle {
 	private void showLoanListScreen(RoutingContext routingContext) {
 		engine.render(routingContext, "templates/loans.html", response -> routingContext.response().setStatusCode(200)
 				.putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result()));
+	}
+	
+	private void renew(RoutingContext routingContext) {
+		final ReturnRenewal itemReturn = Json.decodeValue(routingContext.getBodyAsString(), ReturnRenewal.class);
+		patronId = itemReturn.getPatron();
+		loanId = itemReturn.getLoan();		
+		retrievePatronForRenewal(routingContext);
+	}
+	
+	// This method is recreating code; todo: find some way to reconcile them
+	private void retrievePatronForRenewal(RoutingContext routingContext) {
+		HttpClient httpClient = vertx.createHttpClient();
+		httpClient.get(dataApiPort, dataApiServer, patronApi + patronId, response -> {
+			if (response.statusCode() == 200) {
+				response.bodyHandler(buffer -> {
+					patron = Json.decodeValue(buffer.toString(), Patron.class);
+					logger.info("Found patron: " + patron.getPatronName() + " with id " + patronId);
+					retrieveLoanForRenewal(routingContext);
+				});
+			} else {
+				routingContext.response().setStatusCode(404).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+						.end("Could not find patron with id " + patronId);
+			}
+		}).putHeader("content-type", "application/json").putHeader("accept", "application/json")
+				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
+	}
+	
+	// Same concern as above
+	private void retrieveLoanForRenewal(RoutingContext routingContext) {
+		HttpClient httpClient = vertx.createHttpClient();
+		httpClient.get(dataApiPort, dataApiServer, patronApi + patronId + "/loans/" + loanId, response -> {
+			if (response.statusCode() == 200) {
+				response.bodyHandler(buffer -> {
+					loan = Json.decodeValue(buffer.toString(), Loan.class);
+					logger.info("Found loan with id " + loan.getId());
+					renewLoan(routingContext);
+				});
+			} else {
+				routingContext.response().setStatusCode(404).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+						.end("Could not find loan with id " + loanId);
+			}
+		}).putHeader("content-type", "application/json").putHeader("accept", "application/json")
+				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
+	}
+	
+	private void renewLoan(RoutingContext routingContext) {
+		HttpClient httpClient = vertx.createHttpClient();
+		loan.setDueDate((int)(System.currentTimeMillis()/1000 + 1209600));
+		String loanAsJson = Json.encode(loan);
+		httpClient.put(dataApiPort, dataApiServer, patronApi + patronId + "/loans/" + loanId, response -> {
+			if (response.statusCode() == 204) {
+				response.bodyHandler(buffer -> {
+					logger.info("Updated loan with id " + loanId + " for patron " + patronId);
+					routingContext.response().setStatusCode(200)
+					.end("Renewed loan with id " + loanId);
+				});				
+			} else {
+				routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+						.end("Could not update loan");
+			}
+		}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
+				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(loanAsJson);
 	}
 }

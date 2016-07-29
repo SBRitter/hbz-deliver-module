@@ -1,15 +1,15 @@
 package hbz;
 
-public class ItemReturn {
+public class ReturnRenewal {
 
   private String patron;
   private String loan;
 
-  public ItemReturn() {
+  public ReturnRenewal() {
     // Empty constructor needed for de-/encoding of JSON objects
   }
 
-  public ItemReturn(String patron, String loan) {
+  public ReturnRenewal(String patron, String loan) {
     this.patron = patron;
     this.loan = loan;
   }
