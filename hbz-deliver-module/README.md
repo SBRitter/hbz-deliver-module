@@ -4,10 +4,10 @@ Note: this is work in progress, so far this module only works for one tenant, ca
 
 ## Setup and run Okapi
 
-clone this fork (best cd to some directory where you store projects that will be used in this guide, like ~/code/ or ~/git/)
-git clone https://github.com/SBRitter/okapi.git. Then, checkout the feature branch, build and run okapi.
+Clone this fork (best cd to some directory where you store all projects that will be used in this guide, like ~/code/ or ~/git/). Then, checkout the feature branch "deliver-prototype", build and run okapi.
 
 ```
+git clone https://github.com/SBRitter/okapi.git
 cd okapi
 git checkout deliver-prototype
 mvn clean install -DskipTests
@@ -27,7 +27,7 @@ Now everytime localhost is called, the additional header "X-Okapi-Tenant" will b
 
 ## Build and deploy the deliver prototype on Okapi
 
-Use another shell. Go to the project root directory of the deliver module and build the project. Then, run the deploy script for deliver.
+Use another shell. Go to the project root directory of the deliver module and build the project. Then, run the deploy script for the hbz-deliver-module.
 ```
 cd okapi/hbz-deliver-module
 mvn package -DskipTests
@@ -38,7 +38,7 @@ This will create a tenant in Okapi called hbz and deploy the deliver module.
 
 ## Deploy circulation module of lsp-apis-impl on Okapi
 
-Go back to the directory above the Okapi project (e.g. some directory like ~/code/ or ~/git/). Get the project and build & run the two subprojects domain-models-poc and circulation.
+Go back to the directory above the Okapi project (e.g. some directory like ~/code/ or ~/git/). Get the project and build & run the two subprojects "domain-models-poc" and "circulation".
 
 ```
 cd ../..
@@ -58,7 +58,7 @@ cd ../../okapi/hbz-deliver-module
 
 ## Create demo data
 
-Make sure you're still in the project root directory of hbz-deliver-module okapi/hbz-deliver-module/.
+Make sure you're still in the project root directory of hbz-deliver-module, i.e. okapi/hbz-deliver-module/.
 
 ### Create an item
 
