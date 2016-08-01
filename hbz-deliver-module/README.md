@@ -38,7 +38,14 @@ This will create a tenant in Okapi called hbz and deploy the deliver module.
 
 ## Deploy circulation module of lsp-apis-impl on Okapi
 
-Go back to the directory above the Okapi project (e.g. some directory like ~/code/ or ~/git/). Get the project and build & run the two subprojects "domain-models-poc" and "circulation".
+Go back to the directory above the Okapi project (e.g. some directory like ~/code/ or ~/git/) and create the lsp-apis-impl project next to the okapi project. This directory layout is needed because okapi´s base path is where `mvn exec:exec` has been invoked and deployments like in lsp-module-deploy.json use relative paths.
+
+```
+git
+├── okapi
+└── lsp-apis-impl
+```
+Get the project and build & run the two subprojects "domain-models-poc" and "circulation".
 
 ```
 cd ../..
