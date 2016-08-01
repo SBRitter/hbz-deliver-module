@@ -113,7 +113,8 @@ curl -XGET http://localhost:9130/apis/items \
 ### List all loans of a patron and return item
 * Open browser an go to `http://localhost:9130/deliver/listLoans`
 * Enter the id of the patron you created the loan for
-* Click on return on a loan
+* You can return a loan by clicking on "return"...
+* ...or renew a loan for another two loan period by clicking on "renew"
 
 ## Testing
 
