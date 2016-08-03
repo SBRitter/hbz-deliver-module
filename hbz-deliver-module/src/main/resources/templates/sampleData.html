@@ -165,6 +165,9 @@
     				},
 					success: function(message){
 						location.reload();						
+					},
+					error: function(XMLHttpRequest, textStatus, errorThrown) {
+						alert(XMLHttpRequest.responseText);
 					}
 				});
 			});
@@ -180,6 +183,9 @@
     				},
 					success: function(message){
 						location.reload();					
+					},
+					error: function(XMLHttpRequest, textStatus, errorThrown) {
+						alert(XMLHttpRequest.responseText);
 					}
 				});
 			});

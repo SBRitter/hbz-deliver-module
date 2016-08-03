@@ -390,7 +390,7 @@ public class MainVerticle extends AbstractVerticle {
 						.end("Patron created");
 			} else {
 				routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
-						.end("Error creating patron");
+						.end("Error creating patron. Try again. Typos?");
 			}
 		}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(patron);
@@ -406,7 +406,7 @@ public class MainVerticle extends AbstractVerticle {
 						.end("Item created");
 			} else {
 				routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
-						.end("Error creating item");
+						.end("Error creating item. Try again. Typos?");
 			}
 		}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(patron);
