@@ -218,20 +218,25 @@
 			$('.deleteItemButton').click(function() {
 			    var thisRow = $(this).closest("tr");
 			    var itemId = thisRow.find("td").eq(0).text();
-				$.ajax({
-					type: "DELETE",
-					url: "/deliver/deleteItem",
-					data: itemId,
-					headers: {
-        				"X-Okapi-Tenant":"hbz",
-    				},
-					success: function(message){
-						location.reload();					
-					},
-					error: function(XMLHttpRequest, textStatus, errorThrown) {
-						alert(XMLHttpRequest.responseText);
-					}
-				});
+			    var itemStatus = thisRow.find("td").eq(1).text();
+			    if (itemStatus == "ITEM_STATUS_ON_LOAN") {
+			    	alert("Error: Item is on loan, cannot delete! Return first");
+			    } else {
+					$.ajax({
+						type: "DELETE",
+						url: "/deliver/deleteItem",
+						data: itemId,
+						headers: {
+        					"X-Okapi-Tenant":"hbz",
+    					},
+						success: function(message){
+							location.reload();					
+						},
+						error: function(XMLHttpRequest, textStatus, errorThrown) {
+							alert(XMLHttpRequest.responseText);
+						}
+					});
+				}
 			});
 		});
 						

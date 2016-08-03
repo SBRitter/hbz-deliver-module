@@ -350,7 +350,8 @@ public class MainVerticle extends AbstractVerticle {
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(loanAsJson);
 	}
 
-	// Sample Data methods, only for testing the module (can this code go into a different class)
+	// Sample Data methods, only for testing the module (can this code go into a
+	// different class)
 
 	private void showSampleDataScreen(RoutingContext routingContext) {
 		HttpClient httpClient = vertx.createHttpClient();
@@ -420,32 +421,35 @@ public class MainVerticle extends AbstractVerticle {
 	private void deletePatron(RoutingContext routingContext) {
 		String patronId = routingContext.getBodyAsString();
 		HttpClient httpClient = vertx.createHttpClient();
-		httpClient.delete(9130, "localhost", "/apis/patrons/" + patronId, response -> {
-			if (response.statusCode() == 204) {
-				// check whether patron has open loans
-				httpClient.get(dataApiPort, dataApiServer, patronApi + patronId + "/loans",
-						loanResponse -> loanResponse.bodyHandler(buffer -> {
-							try {
-								JSONObject bufferAsJson = new JSONObject(buffer.toString());
-								JSONArray loans = bufferAsJson.getJSONArray("loans");
-								if (loans.length() == 0) {
+
+		// check whether patron has open loans
+		httpClient.get(dataApiPort, dataApiServer, patronApi + patronId + "/loans",
+				loanResponse -> loanResponse.bodyHandler(buffer -> {
+					try {
+						JSONObject bufferAsJson = new JSONObject(buffer.toString());
+						JSONArray loans = bufferAsJson.getJSONArray("loans");
+						if (loans.length() == 0) {
+
+							httpClient.delete(9130, "localhost", "/apis/patrons/" + patronId, response -> {
+								if (response.statusCode() == 204) {
 									routingContext.response().setStatusCode(204)
 											.putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end("Patron deleted");
 								} else {
-									routingContext.response().setStatusCode(404)
-											.end("Error: Patron has still open loans! Return items first");
+									routingContext.response().setStatusCode(500)
+											.putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+											.end("Error deleting patron");
 								}
-							} catch (Exception e) {
-								logger.error(e);
-							}
-						})).putHeader("content-type", "application/json").putHeader("accept", "application/json")
-						.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
-
-			} else {
-				routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
-						.end("Error deleting patron");
-			}
-		}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
+							}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
+									.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant)
+									.end();
+						} else {
+							routingContext.response().setStatusCode(404)
+									.end("Error: Patron has still open loans! Return items first");
+						}
+					} catch (Exception e) {
+						logger.error(e);
+					}
+				})).putHeader("content-type", "application/json").putHeader("accept", "application/json")
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
 
 	}
