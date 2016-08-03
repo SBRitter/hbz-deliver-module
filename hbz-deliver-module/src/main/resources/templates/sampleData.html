@@ -1,0 +1,192 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org">
+<head>
+<title>sample data</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<script src="http://code.jquery.com/jquery-latest.js"></script>
+<link
+	th:href="@{http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css}"
+	rel="stylesheet" />
+</head>
+<body>
+	<div class="container">
+		<div class="jumbotron">
+			<h2>sample data</h2>
+		</div>
+		
+		<div class="row">
+			<div class="col-md-6">
+				<h3>patrons</h3>
+				<h4>create new patron</h4>
+				<div class="form-group">
+					<textarea class="form-control" rows="9" id="patronInputField">
+{
+	"status": "ACTIVE",
+	"patron_name": "Smith,John",
+	"patron_barcode": "00007888",
+	"patron_local_id": "abcdefd",
+	"contact_info": {
+		"patron_address_local": {
+			"line1": "Main Street 1",
+			"line2": "Nice building near the corner",
+			"city": "London",
+			"state_province": "",
+			"postal_code": "",
+			"address_note": "",
+			"start_date": "2013-12-26Z"
+		},
+		"patron_address_home": {
+			"line1": "Main Street 1",
+			"line2": "Nice building near the corner",
+			"city": "London",
+			"state_province": "",
+			"postal_code": "",
+			"address_note": "",
+			"start_date": "2013-12-26Z"
+		},
+		"patron_address_work": {
+			"line1": "Main Street 1",
+			"line2": "Nice building near the corner",
+			"city": "London",
+			"state_province": "",
+			"postal_code": "",
+			"address_note": "",
+			"start_date": "2013-12-26Z"
+		},
+		"patron_email": "johns@mylib.org",
+		"patron_email_alternative": "johns@mylib.org",
+		"patron_phone_cell": "123456789",
+		"patron_phone_home": "123456789",
+		"patron_phone_work": "123456789",
+		"patron_primary_contact_info": "patron_email"
+	},
+	"total_loans": 0,
+	"total_fines": "0$",
+	"total_fines_paid": "0$",
+	"patron_code": {
+		"value": "CH",
+		"description": "Child"
+	}
+}					
+					</textarea>
+					<br/>
+					<button type="button" class="btn btn-primary" id="createPatron">create new patron</button>
+					<br/><br/>
+					<h4>existing patrons</h4>
+					<table id="patronTable" class="table"></table>
+				</div>
+				
+			</div>
+			<div class="col-md-6">
+				<h3>items</h3>
+				<h4>create new item</h4>
+				<div class="form-group">
+					<textarea class="form-control" rows="9" id="itemInputField">
+{
+  "barcode": "39031031697261",
+  "location": {
+    "value": "STACK",
+    "desc": "Stacks (STACK)"
+  },
+  "status": {
+    "value": "03",
+    "desc": "ITEM_STATUS_AVAILABLE"
+  },
+  "material_type": {
+    "value": "BOOK",
+    "desc": "Book",
+    "icon": "book.png"
+  },
+  "shelf_location": {
+    "classification_number": "1234567890",
+    "shelf_listing_number": "12345678"
+  },
+  "copy_id": "1",
+  "item_link": "/bibs/99100383909999/item/1234567890009999",
+  "bib_id": "99100383909999"
+}				
+					</textarea>
+					<br/>
+					<button type="button" class="btn btn-primary" id="createItem">create new item</button>
+					<br/><br/>
+					<h4>existing items</h4>
+					<table id="itemTable" class="table"></table>
+				</div>
+			</div>
+		</div>
+		
+	</div>
+</body>
+
+	<script th:inline="javascript" type="text/javascript">
+		/*<![CDATA[*/
+		
+		$(document).ready(function() {
+		
+			// Build patron table
+		    var patronsArrayAsString = /*[[${context.get('patrons')}]]*/ 'Patrons';
+			var patronsArrayAsJson = $.parseJSON(patronsArrayAsString);
+			var tr;
+			tr = $('<tr/>');
+			tr.append("<th>patron id</th>");
+			tr.append("<th>patron name</th>");
+			$('#patronTable').append(tr);
+			for (var i = (patronsArrayAsJson.length)-1; i > -1; i--) {
+				tr = $('<tr/>');
+				tr.append("<td>" + patronsArrayAsJson[i]._id + "</td>");
+				tr.append("<td>" + patronsArrayAsJson[i].patron_name + "</td>");	
+				$('#patronTable').append(tr);
+			}
+			
+			// Build item table
+			var itemsArrayAsString = /*[[${context.get('items')}]]*/ 'Items';
+			var itemsArrayAsJson = $.parseJSON(itemsArrayAsString);
+			var tr;
+			tr = $('<tr/>');
+			tr.append("<th>item id</th>");
+			tr.append("<th>item status</th>");
+			$('#itemTable').append(tr);
+			for (var i = (itemsArrayAsJson.length)-1; i > -1; i--) {
+				tr = $('<tr/>');
+				tr.append("<td>" + itemsArrayAsJson[i]._id + "</td>");
+				tr.append("<td>" + itemsArrayAsJson[i].status.desc + "</td>");	
+				$('#itemTable').append(tr);
+			}
+			
+			// Function behind "Create Patron" button
+			$('#createPatron').click(function() {
+				$.ajax({
+					type: "POST",
+					url: "/deliver/createPatron",
+					data: $('#patronInputField').val(),
+					headers: {
+        				"X-Okapi-Tenant":"hbz",
+    				},
+					success: function(message){
+						location.reload();						
+					}
+				});
+			});
+			
+			// Function behind "Create Item" button
+			$('#createItem').click(function() {
+				$.ajax({
+					type: "POST",
+					url: "/deliver/createItem",
+					data: $('#itemInputField').val(),
+					headers: {
+        				"X-Okapi-Tenant":"hbz",
+    				},
+					success: function(message){
+						location.reload();					
+					}
+				});
+			});
+			
+		});
+						
+		/*]]>*/
+	</script>
+
+</html>

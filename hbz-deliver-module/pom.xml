@@ -165,6 +165,7 @@
 									<manifestEntries>
 										<Main-Class>hbz.MainLauncher</Main-Class>
 										<Main-Verticle>hbz.MainVerticle</Main-Verticle>
+										<Main-Verticle>hbz.DataVerticle</Main-Verticle>
 									</manifestEntries>
 								</transformer>
 							</transformers>
