@@ -44,7 +44,7 @@ public class MainVerticle extends AbstractVerticle {
 	private String loanId;
 	private Loan loan;
 	private String authorization = "a2VybWl0Omtlcm1pdA";
-	
+
 	KieServices kieServices = KieServices.Factory.get();
 	KieContainer kContainer = kieServices.getKieClasspathContainer();
 
@@ -71,9 +71,14 @@ public class MainVerticle extends AbstractVerticle {
 		router.post("/deliver/renew").handler(this::renew);
 		router.get("/deliver/loans/:patronId").handler(this::getLoansForPatron);
 		router.get("/deliver/listLoans").handler(this::showLoanListScreen);
+
+		// routes for sample data
 		router.get("/deliver/sampleData").handler(this::showSampleDataScreen);
 		router.post("/deliver/createPatron").handler(this::createPatron);
 		router.post("/deliver/createItem").handler(this::createItem);
+		router.delete("/deliver/deletePatron").handler(this::deletePatron);
+		router.delete("/deliver/deleteItem").handler(this::deleteItem);
+
 		vertx.createHttpServer().requestHandler(router::accept).listen(port, result -> {
 			if (result.succeeded()) {
 				fut.complete();
@@ -188,13 +193,13 @@ public class MainVerticle extends AbstractVerticle {
 
 	}
 
-	//  This is just a dummy implementation to create a loan quickly
+	// This is just a dummy implementation to create a loan quickly
 	private Loan createLoanObject() {
 		Loan newLoan = new Loan();
 		newLoan.setPatronId(patronId);
 		newLoan.setItemBarcode(item.getBarcode());
 		newLoan.setItemId(item.getId());
-		newLoan.setDueDate((int)(System.currentTimeMillis()/1000 + 1209600));
+		newLoan.setDueDate((int) (System.currentTimeMillis() / 1000 + 1209600));
 		newLoan.setItemPolicy(new ItemPolicy());
 		newLoan.setCircDesk(new CircDesk());
 		newLoan.setLoanStatus("loanStatus");
@@ -283,14 +288,14 @@ public class MainVerticle extends AbstractVerticle {
 		engine.render(routingContext, "templates/loans.html", response -> routingContext.response().setStatusCode(200)
 				.putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(response.result()));
 	}
-	
+
 	private void renew(RoutingContext routingContext) {
 		final ReturnRenewal itemReturn = Json.decodeValue(routingContext.getBodyAsString(), ReturnRenewal.class);
 		patronId = itemReturn.getPatron();
-		loanId = itemReturn.getLoan();		
+		loanId = itemReturn.getLoan();
 		retrievePatronForRenewal(routingContext);
 	}
-	
+
 	// This method is recreating code; todo: find some way to reconcile them
 	private void retrievePatronForRenewal(RoutingContext routingContext) {
 		HttpClient httpClient = vertx.createHttpClient();
@@ -308,7 +313,7 @@ public class MainVerticle extends AbstractVerticle {
 		}).putHeader("content-type", "application/json").putHeader("accept", "application/json")
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
 	}
-	
+
 	// Same concern as above
 	private void retrieveLoanForRenewal(RoutingContext routingContext) {
 		HttpClient httpClient = vertx.createHttpClient();
@@ -326,18 +331,17 @@ public class MainVerticle extends AbstractVerticle {
 		}).putHeader("content-type", "application/json").putHeader("accept", "application/json")
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
 	}
-	
+
 	private void renewLoan(RoutingContext routingContext) {
 		HttpClient httpClient = vertx.createHttpClient();
-		loan.setDueDate((int)(System.currentTimeMillis()/1000 + 1209600));
+		loan.setDueDate((int) (System.currentTimeMillis() / 1000 + 1209600));
 		String loanAsJson = Json.encode(loan);
 		httpClient.put(dataApiPort, dataApiServer, patronApi + patronId + "/loans/" + loanId, response -> {
 			if (response.statusCode() == 204) {
 				response.bodyHandler(buffer -> {
 					logger.info("Updated loan with id " + loanId + " for patron " + patronId);
-					routingContext.response().setStatusCode(200)
-					.end("Renewed loan with id " + loanId);
-				});				
+					routingContext.response().setStatusCode(200).end("Renewed loan with id " + loanId);
+				});
 			} else {
 				routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
 						.end("Could not update loan");
@@ -345,9 +349,9 @@ public class MainVerticle extends AbstractVerticle {
 		}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(loanAsJson);
 	}
-	
-	// Sample Data methods
-	
+
+	// Sample Data methods, only for testing the module (can this code go into a different class)
+
 	private void showSampleDataScreen(RoutingContext routingContext) {
 		HttpClient httpClient = vertx.createHttpClient();
 		httpClient.get(9130, "localhost", "/apis/patrons/", response -> response.bodyHandler(buffer -> {
@@ -396,7 +400,7 @@ public class MainVerticle extends AbstractVerticle {
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(patron);
 
 	}
-	
+
 	private void createItem(RoutingContext routingContext) {
 		String patron = routingContext.getBodyAsString();
 		HttpClient httpClient = vertx.createHttpClient();
@@ -410,6 +414,55 @@ public class MainVerticle extends AbstractVerticle {
 			}
 		}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
 				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(patron);
+
+	}
+
+	private void deletePatron(RoutingContext routingContext) {
+		String patronId = routingContext.getBodyAsString();
+		HttpClient httpClient = vertx.createHttpClient();
+		httpClient.delete(9130, "localhost", "/apis/patrons/" + patronId, response -> {
+			if (response.statusCode() == 204) {
+				// check whether patron has open loans
+				httpClient.get(dataApiPort, dataApiServer, patronApi + patronId + "/loans",
+						loanResponse -> loanResponse.bodyHandler(buffer -> {
+							try {
+								JSONObject bufferAsJson = new JSONObject(buffer.toString());
+								JSONArray loans = bufferAsJson.getJSONArray("loans");
+								if (loans.length() == 0) {
+									routingContext.response().setStatusCode(204)
+											.putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end("Patron deleted");
+								} else {
+									routingContext.response().setStatusCode(404)
+											.end("Error: Patron has still open loans! Return items first");
+								}
+							} catch (Exception e) {
+								logger.error(e);
+							}
+						})).putHeader("content-type", "application/json").putHeader("accept", "application/json")
+						.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
+
+			} else {
+				routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+						.end("Error deleting patron");
+			}
+		}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
+				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
+
+	}
+
+	private void deleteItem(RoutingContext routingContext) {
+		String itemId = routingContext.getBodyAsString();
+		HttpClient httpClient = vertx.createHttpClient();
+		httpClient.delete(9130, "localhost", "/apis/items/" + itemId, response -> {
+			if (response.statusCode() == 204) {
+				routingContext.response().setStatusCode(204).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+						.end("Item deleted");
+			} else {
+				routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+						.end("Error deleting item");
+			}
+		}).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
+				.putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end();
 
 	}
 }

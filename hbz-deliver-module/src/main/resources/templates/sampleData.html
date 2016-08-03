@@ -131,11 +131,13 @@
 			tr = $('<tr/>');
 			tr.append("<th>patron id</th>");
 			tr.append("<th>patron name</th>");
+			tr.append("<th>actions</th>");
 			$('#patronTable').append(tr);
 			for (var i = (patronsArrayAsJson.length)-1; i > -1; i--) {
 				tr = $('<tr/>');
 				tr.append("<td>" + patronsArrayAsJson[i]._id + "</td>");
 				tr.append("<td>" + patronsArrayAsJson[i].patron_name + "</td>");	
+				tr.append("<td><button type='button' class='btn btn-danger deletePatronButton'>delete</button></td>");
 				$('#patronTable').append(tr);
 			}
 			
@@ -146,11 +148,13 @@
 			tr = $('<tr/>');
 			tr.append("<th>item id</th>");
 			tr.append("<th>item status</th>");
+			tr.append("<th>actions</th>");
 			$('#itemTable').append(tr);
 			for (var i = (itemsArrayAsJson.length)-1; i > -1; i--) {
 				tr = $('<tr/>');
 				tr.append("<td>" + itemsArrayAsJson[i]._id + "</td>");
-				tr.append("<td>" + itemsArrayAsJson[i].status.desc + "</td>");	
+				tr.append("<td>" + itemsArrayAsJson[i].status.desc + "</td>");
+				tr.append("<td><button type='button' class='btn btn-danger deleteItemButton'>delete</button></td>");
 				$('#itemTable').append(tr);
 			}
 			
@@ -190,6 +194,45 @@
 				});
 			});
 			
+			// Function behind "Delete Patron" button
+			$('.deletePatronButton').click(function() {
+			    var thisRow = $(this).closest("tr");
+			    var patronId = thisRow.find("td").eq(0).text();
+				$.ajax({
+					type: "DELETE",
+					url: "/deliver/deletePatron",
+					data: patronId,
+					headers: {
+        				"X-Okapi-Tenant":"hbz",
+    				},
+					success: function(message){
+						location.reload();					
+					},
+					error: function(XMLHttpRequest, textStatus, errorThrown) {
+						alert(XMLHttpRequest.responseText);
+					}
+				});
+			});
+			
+			// Function behind "Delete Item" button
+			$('.deleteItemButton').click(function() {
+			    var thisRow = $(this).closest("tr");
+			    var itemId = thisRow.find("td").eq(0).text();
+				$.ajax({
+					type: "DELETE",
+					url: "/deliver/deleteItem",
+					data: itemId,
+					headers: {
+        				"X-Okapi-Tenant":"hbz",
+    				},
+					success: function(message){
+						location.reload();					
+					},
+					error: function(XMLHttpRequest, textStatus, errorThrown) {
+						alert(XMLHttpRequest.responseText);
+					}
+				});
+			});
 		});
 						
 		/*]]>*/
