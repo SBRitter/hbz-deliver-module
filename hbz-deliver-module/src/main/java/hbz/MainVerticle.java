@@ -3,6 +3,8 @@ package hbz;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
@@ -11,8 +13,6 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpHeaders;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.kie.api.KieServices;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
@@ -270,12 +270,12 @@ public class MainVerticle extends AbstractVerticle {
 		httpClient.get(dataApiPort, dataApiServer, patronApi + patronId + "/loans",
 				response -> response.bodyHandler(buffer -> {
 					try {
-						JSONObject bufferAsJson = new JSONObject(buffer.toString());
-						JSONArray loans = bufferAsJson.getJSONArray("loans");
-						if (loans.length() > 0) {
-							routingContext.response().end(loans.toString());
+						JsonObject bufferAsJson = new JsonObject(buffer.toString());
+						JsonArray loans = bufferAsJson.getJsonArray("loans");
+						if (loans.isEmpty()) {
+              routingContext.response().setStatusCode(404).end("Error: No loans found");
 						} else {
-							routingContext.response().setStatusCode(404).end("Error: No loans found");
+              routingContext.response().end(loans.toString());
 						}
 					} catch (Exception e) {
 						logger.error(e);
@@ -357,16 +357,16 @@ public class MainVerticle extends AbstractVerticle {
 		HttpClient httpClient = vertx.createHttpClient();
 		httpClient.get(9130, "localhost", "/apis/patrons/", response -> response.bodyHandler(buffer -> {
 			try {
-				JSONObject bufferAsJson = new JSONObject(buffer.toString());
-				JSONArray patrons = bufferAsJson.getJSONArray("patrons");
-				routingContext.put("patrons", patrons.toString(2));
+				JsonObject bufferAsJson = new JsonObject(buffer.toString());
+				JsonArray patrons = bufferAsJson.getJsonArray("patrons");
+				routingContext.put("patrons", patrons.getString(2));
 
 				httpClient
 						.get(9130, "localhost", "/apis/items/", itemResponse -> itemResponse.bodyHandler(itemBuffer -> {
 							try {
-								JSONObject itemBufferAsJson = new JSONObject(itemBuffer.toString());
-								JSONArray items = itemBufferAsJson.getJSONArray("items");
-								routingContext.put("items", items.toString(2));
+								JsonObject itemBufferAsJson = new JsonObject(itemBuffer.toString());
+								JsonArray items = itemBufferAsJson.getJsonArray("items");
+								routingContext.put("items", items.getString(2));
 
 								engine.render(routingContext, "templates/sampleData.html",
 										engineResponse -> routingContext.response().setStatusCode(200)
@@ -426,9 +426,9 @@ public class MainVerticle extends AbstractVerticle {
 		httpClient.get(dataApiPort, dataApiServer, patronApi + patronId + "/loans",
 				loanResponse -> loanResponse.bodyHandler(buffer -> {
 					try {
-						JSONObject bufferAsJson = new JSONObject(buffer.toString());
-						JSONArray loans = bufferAsJson.getJSONArray("loans");
-						if (loans.length() == 0) {
+						JsonObject bufferAsJson = new JsonObject(buffer.toString());
+						JsonArray loans = bufferAsJson.getJsonArray("loans");
+						if (loans.isEmpty()) {
 
 							httpClient.delete(9130, "localhost", "/apis/patrons/" + patronId, response -> {
 								if (response.statusCode() == 204) {
