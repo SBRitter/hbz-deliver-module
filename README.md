@@ -13,12 +13,6 @@ mvn clean install -DskipTests
 mvn exec:exec
 ```
 
-## Get this project
-
-```
-git clone https://github.com/SBRitter/hbz-deliver-module
-```
-
 ## Configure browser to send tenant id
 
 If you want to use the module via your browser after you deployed the module on Okapi through https://localhost:9130/loan and http://localhost:9130/listLoans, you have to somehow pass a tenant (this is required for anything done on Okapi). This can be done with a Firefox Addon called Http Header Mangler (https://addons.mozilla.org/firefox/addon/http-header-mangler/). You pass a file located somewhere in your filesystem. In this file, place the following lines:
@@ -53,10 +47,11 @@ mvn clean install -DskipTests
 
 We will deploy this module later on in this guide.
 
-## Build and deploy the deliver prototype on Okapi
+## Get, build and deploy the deliver prototype on Okapi
 
-Use another shell. Go to the project root directory of the deliver module and build the project. Then, run the deploy script for the hbz-deliver-module.
+Use another shell. Go back to the directory above Okapi and the lsp-api-impl projects.
 ```
+git clone https://github.com/SBRitter/hbz-deliver-module
 cd hbz-deliver-module
 mvn package -DskipTests
 ./okapi_deploy_script_deliver
