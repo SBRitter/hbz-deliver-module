@@ -1,132 +1,180 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-  http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
 
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>com.indexdata.okapi</groupId>
-  <artifactId>okapi</artifactId>
-  <packaging>pom</packaging>
-  <version>0.4-SNAPSHOT</version>
-  <name>okapi</name>
+	<groupId>hbz-deliver-module</groupId>
+	<artifactId>hbz-deliver-module</artifactId>
+	<version>0.0.1</version>
+	<packaging>jar</packaging>
 
-  <modules>
-    <module>okapi-sample-module</module>
-    <module>okapi-auth</module>
-    <module>okapi-header-module</module>
-    <!-- core must be last because it relies on the previous two in tests -->
-    <module>okapi-core</module>
-  </modules>
+	<name>hbz-deliver-module</name>
+	<url>http://maven.apache.org</url>
 
-  <prerequisites>
-    <maven>3.1.1</maven>
-  </prerequisites>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <vertx-version>3.2.1</vertx-version>
-    <docker.registry>docker.indexdata.com:5000</docker.registry>
-  </properties>
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.12</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-core</artifactId>
+			<version>3.2.1</version>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-web</artifactId>
+			<version>3.2.1</version>
+		</dependency>
+		<dependency>
+			<groupId>sling</groupId>
+			<artifactId>domain-models-api-interfaces</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>jackson-annotations</artifactId>
+					<groupId>com.fasterxml.jackson.core</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.drools</groupId>
+			<artifactId>drools-compiler</artifactId>
+			<version>6.4.0.Final</version>
+		</dependency>
+		<dependency>
+			<groupId>org.thymeleaf</groupId>
+			<artifactId>thymeleaf</artifactId>
+			<version>2.1.2.RELEASE</version>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-web-templ-thymeleaf</artifactId>
+			<version>3.2.1</version>
+		</dependency>
+		<dependency>
+			<groupId>io.vertx</groupId>
+			<artifactId>vertx-unit</artifactId>
+			<version>3.2.1</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.jayway.restassured</groupId>
+			<artifactId>rest-assured</artifactId>
+			<version>2.4.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>2.0.0</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
 
-  <build>
-    <plugins>
-      <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.3</version>
-        <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
-          <compilerArgument>-Xlint:unchecked</compilerArgument>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>1.2.1</version>
-        <executions>
-            <execution>
-                <id>default-cli</id>
-                <goals>
-                    <goal>exec</goal>
-                </goals>
-                <configuration>
-                    <executable>java</executable>
-                    <arguments>
-                        <argument>-jar</argument>
-                        <argument>${basedir}/okapi-core/target/okapi-core-fat.jar</argument>
-                        <argument>dev</argument>
-                    </arguments>
-                </configuration>
-            </execution>
-            <execution>
-                <id>debug</id>
-                <goals>
-                    <goal>exec</goal>
-                </goals>
-                <configuration>
-                    <executable>java</executable>
-                    <arguments>
-                        <argument>-Xdebug</argument>
-                        <argument>-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005</argument>
-                        <argument>-jar</argument>
-                        <argument>${basedir}/okapi-core/target/okapi-core-fat.jar</argument>
-                        <argument>dev</argument>
-                    </arguments>
-                </configuration>
-            </execution>
-        </executions>
-      </plugin>
-     <plugin>
-        <groupId>pl.project13.maven</groupId>
-        <artifactId>git-commit-id-plugin</artifactId>
-        <version>2.2.1</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>revision</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
-          <!-- <dateFormatTimeZone>${user.timezone}</dateFormatTimeZone> -->
-          <dateFormatTimeZone>UTC</dateFormatTimeZone> -->
-          <verbose>false</verbose>
-          <generateGitPropertiesFile>true</generateGitPropertiesFile>
-          <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
-          <injectAllReactorProjects>true</injectAllReactorProjects>
-          <skip>false</skip>
-          <runOnlyOnce>false</runOnlyOnce>
-        </configuration>
-      </plugin>
-     <plugin>
-        <groupId>com.spotify</groupId>
-        <artifactId>docker-maven-plugin</artifactId>
-        <version>0.4.5</version>
-        <configuration>
-          <skipDockerBuild>true</skipDockerBuild>
-          <skipDockerTag>true</skipDockerTag>
-          <dockerDirectory>${basedir}</dockerDirectory>
-          <serverId>docker_registry</serverId>
-          <registryUrl>https://${docker.registry}/v2/</registryUrl>
-          <imageName>${project.artifactId}</imageName>
-          <imageTags>
-            <imageTag>${git.commit.id.abbrev}</imageTag>
-            <imageTag>latest</imageTag>
-          </imageTags>
-          <image>${project.artifactId}:${git.commit.id.abbrev}</image>
-          <newName>${docker.registry}/${project.artifactId}:${git.commit.id.abbrev}</newName>
-          <resources>
-            <resource>
-              <targetPath>/</targetPath>
-              <directory>${project.build.directory}</directory>
-              <include>${project.outputFile}</include>
-            </resource>
-          </resources>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
+	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.3</version>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>1.8</version>
+				<executions>
+
+					<!-- start deliver module -->
+					<execution>
+						<id>start-deliver-module</id>
+						<phase>pre-integration-test</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<exec executable="${java.home}/bin/java" dir="${project.build.directory}"
+									spawn="true">
+									<arg value="-jar" />
+									<arg value="${project.artifactId}-fat.jar" />
+									<arg value="--httpPort=8080" />
+								</exec>
+							</target>
+						</configuration>
+					</execution>
+
+					<!-- stop deliver module -->
+					<execution>
+						<id>stop-deliver-module</id>
+						<phase>post-integration-test</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<target>
+								<exec executable="bash" dir="${project.build.directory}"
+									spawn="false">
+									<arg value="-c" />
+									<arg
+										value="ps ax | grep -i 'hbz-deliver-module-fat' | awk 'NR==1{print $1}' | xargs kill -SIGTERM" />
+								</exec>
+							</target>
+						</configuration>
+					</execution>
+
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>2.18.1</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>2.4</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<transformers>
+								<transformer
+									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<manifestEntries>
+										<Main-Class>hbz.MainLauncher</Main-Class>
+										<Main-Verticle>hbz.MainVerticle</Main-Verticle>
+									</manifestEntries>
+								</transformer>
+							</transformers>
+							<artifactSet />
+							<outputFile>${project.build.directory}/${project.artifactId}-fat.jar</outputFile>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 
 </project>

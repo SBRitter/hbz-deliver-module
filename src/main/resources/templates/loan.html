@@ -1,0 +1,70 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org">
+<head>
+<title>loan a book!</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<script src="http://code.jquery.com/jquery-latest.js"></script>
+<link
+	th:href="@{http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css}"
+	rel="stylesheet" />
+
+</head>
+<body>
+	<div class="container">
+		<div class="jumbotron">
+			<h2>loan</h2>
+		</div>
+		<div class="page-header">
+			<div class="row">
+				<div class="col-md-6">
+					<form>
+						<fieldset class="form-group">
+							<label for="patronId">patron id:</label> <input type="text"
+								class="form-control" id="patronId" />
+						</fieldset>
+						<fieldset class="form-group">
+							<label for="itemId">item id:</label> <input type="text"
+								class="form-control" id="itemId" />
+						</fieldset>
+						<button type="button" id="loanButton" class="btn btn-primary">loan</button>
+					</form><br />
+					<div class="alert alert-success" role="alert" id="success" style="display: none;"></div>
+					<div class="alert alert-danger" role="alert" id="error" style="display: none;"></div>
+				</div>
+				<div class="col-md-6"></div>
+			</div>
+		</div>
+	</div>
+	<script th:inline="javascript">
+		/*<![CDATA[*/
+		$(document).ready(function() {
+			$('#loanButton').click(function() {
+				$('#success').hide();
+				$('#error').hide();
+				var deliveryJson = new Object();
+				deliveryJson.patron = $('#patronId').val();
+				deliveryJson.item = $('#itemId').val();
+				var deliveryString = JSON.stringify(deliveryJson);
+				$.ajax({
+					type: "POST",
+					url: "/deliver/loan",
+					data: deliveryString,
+					headers: {
+						"X-Okapi-Tenant":"hbz",
+					},
+					success: function(message){
+						$('#success').text(message);
+						$('#success').fadeIn(500);
+					},
+					error: function(XMLHttpRequest, textStatus, errorThrown) {
+						$('#error').text(XMLHttpRequest.responseText);
+						$('#error').fadeIn(500);
+					}
+				});
+			});
+		});
+		/*]]>*/
+	</script>
+</body>
+</html>

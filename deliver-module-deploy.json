@@ -1,0 +1,6 @@
+{
+  "srvcId" : "hbz-deliver-module",
+  "descriptor" : {
+    "exec" : "java -Dport=%p -jar hbz-deliver-module/target/hbz-deliver-module-fat.jar -conf hbz-deliver-module/src/main/resources/conf/application.conf"
+   }
+}

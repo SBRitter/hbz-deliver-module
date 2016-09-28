@@ -1,0 +1,132 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org">
+<head>
+<title>get loans for patron!</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<script src="http://code.jquery.com/jquery-latest.js"></script>
+<link
+	th:href="@{http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css}"
+	rel="stylesheet" />
+</head>
+<body>
+	<div class="container">
+		<div class="jumbotron">
+			<h2>loan list</h2>
+		</div>
+		<div class="page-header">
+			<div class="row">
+				<div class="col-md-6">
+					<div class="input-group">
+						<input type="text" class="form-control" id="patronId" placeholder="enter patron id" />
+						<span class="input-group-btn">
+							<button class="btn btn-primary" type="button" id="getLoansButton">get loans!</button>
+						</span>
+					</div>
+				</div>
+				<div class="col-md-6"></div>
+				<div class="col-md-12">
+					<br />
+					<div class="alert alert-success" role="alert" id="success" style="display: none;"></div>
+					<div class="alert alert-danger" role="alert" id="error" style="display: none;"></div>
+					<br />
+					<table class="table"></table>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script th:inline="javascript" type="text/javascript">
+		/*<![CDATA[*/
+		$(document).ready(function() {
+			$('.btn').click(function() {
+				$('#success').hide();
+				$('#error').hide();
+			});
+			$('#getLoansButton').click(buildTable);			
+			
+		    function buildTable(event) {
+				$('.table').empty();
+				$.ajax({
+					type: "GET",
+					url: "/deliver/loans/" + $('#patronId').val(),
+					headers: {
+        				"X-Okapi-Tenant":"hbz",
+    				},
+					success: function(message){
+						var loanArray = $.parseJSON(message);
+						var tr;
+						tr = $('<tr/>');
+						tr.append("<th>loan id</th>");
+						tr.append("<th>item id</th>");
+						tr.append("<th>due date</th>");
+						tr.append("<th>actions</th>");
+						$('table').append(tr);
+						for (var i = 0; i < loanArray.length; i++) {
+							tr = $('<tr/>');
+							tr.append("<td>" + loanArray[i]._id + "</td>");
+							tr.append("<td>" + loanArray[i].item_id + "</td>");	
+							var dueDate = new Date(loanArray[i].due_date * 1000);				
+							tr.append("<td>" +  dueDate.toString("MMM dd") + "</td>");
+							tr.append("<td><button type='button' class='btn btn-danger return-button'>return</button>&nbsp<button type='button' class='btn btn-warning renew-button'>renew</button></td>");
+							$('table').append(tr);
+						}
+						$('.return-button').click(function() {
+							var returnJson = new Object();
+							returnJson.patron = $('#patronId').val();
+							var thisRow = $(this).closest("tr");
+							returnJson.loan = thisRow.find("td").eq(0).text();
+							var returnString = JSON.stringify(returnJson);
+							$.ajax({
+								type: "POST",
+								url: "/deliver/return",
+								data: returnString,
+								headers: {
+        							"X-Okapi-Tenant":"hbz",
+    							},
+								success: function(message){
+									thisRow.remove();
+									$('#success').text(message);
+									$('#success').fadeIn(500);
+								},
+								error: function(XMLHttpRequest, textStatus, errorThrown) {
+									$('#error').text(XMLHttpRequest.responseText);
+									$('#error').fadeIn(500);
+								}
+							});
+						});
+						$('.renew-button').click(function() {						    
+							var returnJson = new Object();
+							returnJson.patron = $('#patronId').val();
+							var thisRow = $(this).closest("tr");
+							returnJson.loan = thisRow.find("td").eq(0).text();
+							var returnString = JSON.stringify(returnJson);
+							$.ajax({
+								type: "POST",
+								url: "/deliver/renew",
+								data: returnString,
+								headers: {
+        							"X-Okapi-Tenant":"hbz",
+    							},
+								success: function(message){									
+									buildTable();
+									$('#success').text(message);
+									$('#success').fadeIn(500);
+								},
+								error: function(XMLHttpRequest, textStatus, errorThrown) {
+									$('#error').text(XMLHttpRequest.responseText);
+									$('#error').fadeIn(500);
+								}
+							});
+						});
+					},
+					error: function(XMLHttpRequest, textStatus, errorThrown) {
+						$('#error').text(XMLHttpRequest.responseText);
+						$('#error').fadeIn(500);
+					}
+				});
+			}
+		});
+		/*]]>*/
+	</script>
+</body>
+</html>

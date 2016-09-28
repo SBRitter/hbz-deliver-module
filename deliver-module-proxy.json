@@ -1,0 +1,14 @@
+{
+  "id" : "hbz-deliver-module",
+  "name" : "hbz deliver module",
+  "provides" : [ {
+    "id" : "deliver",
+    "version" : "0.0.1"
+  } ],
+  "routingEntries" : [ {
+    "methods" : [ "GET", "POST" ],
+    "path" : "/deliver",
+    "level" : "30",
+    "type" : "request-response"
+  } ]
+}
