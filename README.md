@@ -4,14 +4,19 @@ Note: this is work in progress, so far this module only works for one tenant, ca
 
 ## Setup and run Okapi
 
-Clone this fork (best cd to some directory where you store all projects that will be used in this guide, like ~/code/ or ~/git/). Then, checkout the feature branch "deliver-prototype", build and run okapi.
+Clone this fork (best cd to some directory where you store all projects that will be used in this guide, like ~/code/ or ~/git/). 
 
 ```
-git clone https://github.com/SBRitter/okapi.git
+git clone https://github.com/folio-org/okapi.git
 cd okapi
-git checkout deliver-prototype
 mvn clean install -DskipTests
 mvn exec:exec
+```
+
+## Get this project
+
+```
+git clone ...
 ```
 
 ## Configure browser to send tenant id
@@ -27,11 +32,12 @@ Now everytime localhost is called, the additional header "X-Okapi-Tenant" will b
 
 ## Build the lsp-apis-impl project
 
-Go back to the directory above the Okapi project (e.g. some directory like ~/code/ or ~/git/) and create the lsp-apis-impl project next to the okapi project. This directory layout is needed because okapi's base path is where `mvn exec:exec` has been invoked and deployments like in lsp-module-deploy.json use relative paths.
+Go back to the directory above the Okapi project and this project (e.g. some directory like ~/code/ or ~/git/) and create the lsp-apis-impl project next to the Okapi project. This directory layout is needed because Okapi's base path is where `mvn exec:exec` has been invoked and deployments like in lsp-module-deploy.json use relative paths.
 
 ```
 git
 ├── okapi
+├── hbz-deliver-module
 └── lsp-apis-impl
 ```
 Get the lsp-apis-impl project and build & run the two subprojects "domain-models-poc" and "circulation".
@@ -51,7 +57,7 @@ We will deploy this module later on in this guide.
 
 Use another shell. Go to the project root directory of the deliver module and build the project. Then, run the deploy script for the hbz-deliver-module.
 ```
-cd okapi/hbz-deliver-module
+cd hbz-deliver-module
 mvn package -DskipTests
 ./okapi_deploy_script_deliver
 ```
@@ -63,13 +69,13 @@ This will create a tenant in Okapi called hbz and deploy the deliver module.
 Make sure you are in the directory of the hbz-deliver-module. Run the deploy script for the lsp-apis-impl circulation submodule. This will deploy the lsp-apis-impl circulation module on Okapi.
 
 ```
-cd ../../okapi/hbz-deliver-module
+cd ../../hbz-deliver-module
 ./okapi_deploy_script_lsp
 ```
 
 ## Create demo data
 
-Make sure you're still in the project root directory of hbz-deliver-module, i.e. okapi/hbz-deliver-module/.
+Make sure you're still in the project root directory of hbz-deliver-module.
 
 ### Create an item
 
