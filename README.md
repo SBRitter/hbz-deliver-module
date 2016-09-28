@@ -4,7 +4,7 @@ Note: this is work in progress, so far this module only works for one tenant, ca
 
 ## Setup and run Okapi
 
-Clone this fork (best cd to some directory where you store all projects that will be used in this guide, like ~/code/ or ~/git/). 
+Best cd to some directory where you store all projects that will be used in this guide, like ~/code/ or ~/git/. 
 
 ```
 git clone https://github.com/folio-org/okapi.git
