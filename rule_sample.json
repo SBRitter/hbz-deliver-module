@@ -1,0 +1,7 @@
+{
+  "ruleName" : "my test rule",
+  "patronStatus" : "ACTIVE",
+  "patronType" : "Student",
+  "itemStatus" : "03",
+  "itemType" : "Book"
+ }

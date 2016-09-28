@@ -1,0 +1,89 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org">
+<head>
+<title>rules editor</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<script src="http://code.jquery.com/jquery-latest.js"></script>
+<link
+	th:href="@{http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css}"
+	rel="stylesheet" />
+</head>
+<body>
+	<div class="container">
+		<div class="jumbotron">
+			<h2>rules editor</h2>
+		</div>
+
+		<div class="row">
+			<div class="col-md-6">
+				<h3>Create a new deliver rule</h3>
+				<p class="help-block">Fill in all fields of the form</p>
+				<div class="form-group">
+					<form>
+						<div class="form-group">
+							<fieldset class="form-group">
+							    <label for="ruleName">rule name:</label>
+								<input type="text" class="form-control" id="ruleName" />
+								<p class="help-block">(a-z, 0-9 and spaces allowed)</p>
+								<label for="patronStatus">patron status:</label>
+								<input type="text" class="form-control" id="patronStatus" />
+								<label for="patronType">patron type:</label>
+								<input type="text" class="form-control" id="patronType" />
+								<label for="itemStatus">item status:</label>
+								<input type="text" class="form-control" id="itemStatus" />
+								<label for="itemType">item type:</label>
+								<input type="text" class="form-control" id="itemType" />
+							</fieldset>
+							<button type="button" class="btn btn-primary" id="createRuleButton">create rule</button>
+							<br/><br/>
+							<div class="alert alert-success" role="alert" id="success" style="display: none;"></div>
+							<div class="alert alert-danger" role="alert" id="error" style="display: none;"></div>
+						</div>
+					</form>
+					<br />
+
+				</div>
+			</div>
+		</div>
+
+	</div>
+</body>
+
+<script th:inline="javascript" type="text/javascript">
+	/*<![CDATA[*/
+
+	$(document).ready(function() {
+		$('#createRuleButton').click(function() {
+			$('#success').hide();
+			$('#error').hide();
+			var ruleJson = new Object();
+			ruleJson.ruleName = $('#ruleName').val();
+			ruleJson.patronStatus = $('#patronStatus').val();
+			ruleJson.patronType = $('#patronType').val();
+			ruleJson.itemStatus = $('#itemStatus').val();
+			ruleJson.itemType = $('#itemType').val();
+			var ruleString = JSON.stringify(ruleJson);
+			$.ajax({
+				type: "POST",
+				url: "/deliver/createRule",
+				data: ruleString,
+				headers: {
+					"X-Okapi-Tenant":"hbz",
+				},
+				success: function(message){
+					$('#success').text(message);
+					$('#success').fadeIn(500);
+				},
+				error: function(XMLHttpRequest, textStatus, errorThrown) {
+					$('#error').text(XMLHttpRequest.responseText);
+					$('#error').fadeIn(500);
+				}
+			});
+		});
+	});
+
+	/*]]>*/
+</script>
+
+</html>
