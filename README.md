@@ -16,7 +16,7 @@ mvn exec:exec
 ## Get this project
 
 ```
-git clone ...
+git clone https://github.com/SBRitter/hbz-deliver-module
 ```
 
 ## Configure browser to send tenant id
