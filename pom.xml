@@ -31,16 +31,11 @@
 			<artifactId>vertx-web</artifactId>
 			<version>3.2.1</version>
 		</dependency>
+
 		<dependency>
-			<groupId>sling</groupId>
-			<artifactId>domain-models-api-interfaces</artifactId>
+			<groupId>org.folio</groupId>
+			<artifactId>circulation</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
-			<exclusions>
-				<exclusion>
-					<artifactId>jackson-annotations</artifactId>
-					<groupId>com.fasterxml.jackson.core</groupId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.drools</groupId>

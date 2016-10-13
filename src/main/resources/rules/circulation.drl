@@ -1,14 +1,14 @@
 package rules;
 
-import com.sling.rest.jaxrs.model.Patron;
-import com.sling.rest.jaxrs.model.Item;
-import com.sling.rest.jaxrs.model.Status;
+import org.folio.rest.jaxrs.model.Item;
+import org.folio.rest.jaxrs.model.Loan;
+import org.folio.rest.jaxrs.model.Patron;
 import hbz.LoanPermission;
 
 rule "Patron is active"
 when 
   $p : Patron(getStatus().equals("ACTIVE"))
-  $i : Item(getStatus().getValue().equals("03"))
+  $i : Item(getItemStatus().getValue().equals("01"))
   $l : LoanPermission()
 then
   $l.setPermitted(true);

@@ -22,53 +22,53 @@
 				<div class="form-group">
 					<textarea class="form-control" rows="9" id="patronInputField">
 {
-	"status": "ACTIVE",
-	"patron_name": "Smith,John",
-	"patron_barcode": "00007888",
-	"patron_local_id": "abcdefd",
-	"contact_info": {
-		"patron_address_local": {
-			"line1": "Main Street 1",
-			"line2": "Nice building near the corner",
-			"city": "London",
-			"state_province": "",
-			"postal_code": "",
-			"address_note": "",
-			"start_date": "2013-12-26Z"
-		},
-		"patron_address_home": {
-			"line1": "Main Street 1",
-			"line2": "Nice building near the corner",
-			"city": "London",
-			"state_province": "",
-			"postal_code": "",
-			"address_note": "",
-			"start_date": "2013-12-26Z"
-		},
-		"patron_address_work": {
-			"line1": "Main Street 1",
-			"line2": "Nice building near the corner",
-			"city": "London",
-			"state_province": "",
-			"postal_code": "",
-			"address_note": "",
-			"start_date": "2013-12-26Z"
-		},
-		"patron_email": "johns@mylib.org",
-		"patron_email_alternative": "johns@mylib.org",
-		"patron_phone_cell": "123456789",
-		"patron_phone_home": "123456789",
-		"patron_phone_work": "123456789",
-		"patron_primary_contact_info": "patron_email"
-	},
-	"total_loans": 0,
-	"total_fines": "0$",
-	"total_fines_paid": "0$",
-	"patron_code": {
-		"value": "CH",
-		"description": "Child"
-	}
-}					
+  "status": "ACTIVE",
+  "patron_name": "Smith,John",
+  "patron_barcode": "00007888",
+  "patron_local_id": "abcdefd",
+  "contact_info": {
+    "patron_address_local": {
+      "line1": "Main Street 1",
+      "line2": "Nice building near the corner",
+      "city": "London",
+      "state_province": "",
+      "postal_code": "",
+      "address_note": "",
+      "start_date": "2013-12-26Z"
+    },
+    "patron_address_home": {
+      "line1": "Main Street 1",
+      "line2": "Nice building near the corner",
+      "city": "London",
+      "state_province": "",
+      "postal_code": "",
+      "address_note": "",
+      "start_date": "2013-12-26Z"
+    },
+    "patron_address_work": {
+      "line1": "Main Street 1",
+      "line2": "Nice building near the corner",
+      "city": "London",
+      "state_province": "",
+      "postal_code": "",
+      "address_note": "",
+      "start_date": "2013-12-26Z"
+    },
+    "patron_email": "johns@mylib.org",
+    "patron_email_alternative": "johns@mylib.org",
+    "patron_phone_cell": "123456789",
+    "patron_phone_home": "123456789",
+    "patron_phone_work": "123456789",
+    "patron_primary_contact_info": "patron_email"
+  },
+  "total_loans": 50,
+  "total_fines": "100$",
+  "total_fines_paid": "0$",
+  "patron_code": {
+    "value": "CH",
+    "description": "Child"
+  }
+}				
 					</textarea>
 					<br/>
 					<button type="button" class="btn btn-primary" id="createPatron">create new patron</button>
@@ -89,9 +89,9 @@
     "value": "STACK",
     "desc": "Stacks (STACK)"
   },
-  "status": {
-    "value": "03",
-    "desc": "ITEM_STATUS_AVAILABLE"
+  "item_status": {
+    "value": "01",
+    "desc": "ITEM_STATUS_MISSING"
   },
   "material_type": {
     "value": "BOOK",
@@ -104,8 +104,9 @@
   },
   "copy_id": "1",
   "item_link": "/bibs/99100383909999/item/1234567890009999",
-  "bib_id": "99100383909999"
-}				
+  "bib_id": "99100383909999",
+  "library_id" : "88"
+}		
 					</textarea>
 					<br/>
 					<button type="button" class="btn btn-primary" id="createItem">create new item</button>
@@ -135,7 +136,9 @@
 			$('#patronTable').append(tr);
 			for (var i = (patronsArrayAsJson.length)-1; i > -1; i--) {
 				tr = $('<tr/>');
+				
 				tr.append("<td>" + patronsArrayAsJson[i]._id + "</td>");
+				
 				tr.append("<td>" + patronsArrayAsJson[i].patron_name + "</td>");	
 				tr.append("<td><button type='button' class='btn btn-danger deletePatronButton'>delete</button></td>");
 				$('#patronTable').append(tr);
@@ -152,8 +155,10 @@
 			$('#itemTable').append(tr);
 			for (var i = (itemsArrayAsJson.length)-1; i > -1; i--) {
 				tr = $('<tr/>');
+				
 				tr.append("<td>" + itemsArrayAsJson[i]._id + "</td>");
-				tr.append("<td>" + itemsArrayAsJson[i].status.desc + "</td>");
+				
+				tr.append("<td>" + itemsArrayAsJson[i].item_status.desc + "</td>");
 				tr.append("<td><button type='button' class='btn btn-danger deleteItemButton'>delete</button></td>");
 				$('#itemTable').append(tr);
 			}
@@ -168,7 +173,7 @@
         				"X-Okapi-Tenant":"hbz",
     				},
 					success: function(message){
-						location.reload();						
+						location.reload();
 					},
 					error: function(XMLHttpRequest, textStatus, errorThrown) {
 						alert(XMLHttpRequest.responseText);
@@ -186,7 +191,7 @@
         				"X-Okapi-Tenant":"hbz",
     				},
 					success: function(message){
-						location.reload();					
+						location.reload();
 					},
 					error: function(XMLHttpRequest, textStatus, errorThrown) {
 						alert(XMLHttpRequest.responseText);

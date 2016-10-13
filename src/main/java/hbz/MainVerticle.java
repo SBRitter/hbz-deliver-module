@@ -17,23 +17,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import org.folio.rest.jaxrs.model.CircDesk;
+import org.folio.rest.jaxrs.model.Item;
+import org.folio.rest.jaxrs.model.ItemPolicy;
+import org.folio.rest.jaxrs.model.ItemStatus;
+import org.folio.rest.jaxrs.model.Library;
+import org.folio.rest.jaxrs.model.Loan;
+import org.folio.rest.jaxrs.model.LocationCode;
+import org.folio.rest.jaxrs.model.Patron;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.kie.api.KieServices;
 import org.kie.api.builder.KieFileSystem;
-import org.kie.api.io.Resource;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
-import org.kie.internal.io.ResourceFactory;
 
-import com.sling.rest.jaxrs.model.CircDesk;
-import com.sling.rest.jaxrs.model.Item;
-import com.sling.rest.jaxrs.model.ItemPolicy;
-import com.sling.rest.jaxrs.model.Library;
-import com.sling.rest.jaxrs.model.Loan;
-import com.sling.rest.jaxrs.model.LocationCode;
-import com.sling.rest.jaxrs.model.Patron;
-import com.sling.rest.jaxrs.model.Status;
 
 import io.vertx.ext.web.templ.ThymeleafTemplateEngine;
 
@@ -52,7 +50,7 @@ public class MainVerticle extends AbstractVerticle {
   private Item item;
   private String loanId;
   private Loan loan;
-  private String authorization = "a2VybWl0Omtlcm1pdA";
+  private String authorization = "aaaaa";
 
   KieServices kieServices = KieServices.Factory.get();
   KieContainer kContainer = kieServices.getKieClasspathContainer();
@@ -63,8 +61,8 @@ public class MainVerticle extends AbstractVerticle {
   private void initConfiguration() {
     dataApiServer = config().getString("data.api.server", "localhost");
     dataApiPort = config().getInteger("data.api.port", 9130);
-    patronApi = config().getString("data.api.patrons", "/apis/patrons/");
-    itemApi = config().getString("data.api.items", "/apis/items/");
+    patronApi = config().getString("data.api.patrons", "/patrons/");
+    itemApi = config().getString("data.api.items", "/items/");
     tenant = config().getString("data.api.tenant", "hbz");
   }
 
@@ -187,10 +185,10 @@ public class MainVerticle extends AbstractVerticle {
 
   private void updateItemStatus(String statusValue, String statusDescription, RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
-    Status status = new Status();
+    ItemStatus status = new ItemStatus();
     status.setValue(statusValue);
     status.setDesc(statusDescription);
-    item.setStatus(status);
+    item.setItemStatus(status);
     String itemAsJson = Json.encode(item);
     httpClient.put(dataApiPort, dataApiServer, itemApi + itemId, response -> {
       if (response.statusCode() == 204) {
@@ -212,7 +210,7 @@ public class MainVerticle extends AbstractVerticle {
     newLoan.setPatronId(patronId);
     newLoan.setItemBarcode(item.getBarcode());
     newLoan.setItemId(item.getId());
-    newLoan.setDueDate((int) (System.currentTimeMillis() / 1000 + 1209600));
+    newLoan.setDueDate((double) (System.currentTimeMillis() / 1000 + 1209600));
     newLoan.setItemPolicy(new ItemPolicy());
     newLoan.setCircDesk(new CircDesk());
     newLoan.setLoanStatus("loanStatus");
@@ -220,8 +218,9 @@ public class MainVerticle extends AbstractVerticle {
     newLoan.setLocationCode(new LocationCode());
     newLoan.setLoanFine(123);
     newLoan.setRenewable(true);
-    newLoan.setLoanDate((int) System.currentTimeMillis());
+    newLoan.setLoanDate((double) System.currentTimeMillis());
     newLoan.setLibrary(new Library());
+    newLoan.setRenewCount(0);
     return newLoan;
   }
 
@@ -347,7 +346,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private void renewLoan(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
-    loan.setDueDate((int) (System.currentTimeMillis() / 1000 + 1209600));
+    loan.setDueDate((double) (System.currentTimeMillis() / 1000 + 1209600));
     String loanAsJson = Json.encode(loan);
     httpClient.put(dataApiPort, dataApiServer, patronApi + patronId + "/loans/" + loanId, response -> {
       if (response.statusCode() == 204) {
@@ -372,14 +371,14 @@ public class MainVerticle extends AbstractVerticle {
 
   private void showSampleDataScreen(RoutingContext routingContext) {
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.get(9130, "localhost", "/apis/patrons/", response -> response.bodyHandler(buffer -> {
+    httpClient.get(dataApiPort, dataApiServer, patronApi, response -> response.bodyHandler(buffer -> {
       try {
         JSONObject bufferAsJson = new JSONObject(buffer.toString());
         JSONArray patrons = bufferAsJson.getJSONArray("patrons");
         routingContext.put("patrons", patrons.toString(2));
 
         httpClient
-            .get(9130, "localhost", "/apis/items/", itemResponse -> itemResponse.bodyHandler(itemBuffer -> {
+            .get(dataApiPort, dataApiServer, itemApi, itemResponse -> itemResponse.bodyHandler(itemBuffer -> {
               try {
                 JSONObject itemBufferAsJson = new JSONObject(itemBuffer.toString());
                 JSONArray items = itemBufferAsJson.getJSONArray("items");
@@ -406,15 +405,15 @@ public class MainVerticle extends AbstractVerticle {
   private void createPatron(RoutingContext routingContext) {
     String patron = routingContext.getBodyAsString();
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.post(9130, "localhost", "/apis/patrons/", response -> {
+    httpClient.post(dataApiPort, dataApiServer, patronApi, response -> {
       if (response.statusCode() == 201) {
-        routingContext.response().setStatusCode(201).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(201).putHeader(HttpHeaders.CONTENT_TYPE, "text/plain")
             .end("Patron created");
       } else {
-        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/plain")
             .end("Error creating patron. Try again. Typos?");
       }
-    }).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
+    }).putHeader("content-type", "application/json").putHeader("accept", "application/json")
         .putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(patron);
 
   }
@@ -422,15 +421,15 @@ public class MainVerticle extends AbstractVerticle {
   private void createItem(RoutingContext routingContext) {
     String patron = routingContext.getBodyAsString();
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.post(9130, "localhost", "/apis/items/", response -> {
+    httpClient.post(dataApiPort, dataApiServer, itemApi, response -> {
       if (response.statusCode() == 201) {
-        routingContext.response().setStatusCode(201).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(201).putHeader(HttpHeaders.CONTENT_TYPE, "text/plain")
             .end("Item created");
       } else {
-        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/plain")
             .end("Error creating item. Try again. Typos?");
       }
-    }).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
+    }).putHeader("content-type", "application/json").putHeader("accept", "application/json")
         .putHeader("authorization", authorization).putHeader("X-Okapi-Tenant", tenant).end(patron);
 
   }
@@ -447,13 +446,13 @@ public class MainVerticle extends AbstractVerticle {
             JSONArray loans = bufferAsJson.getJSONArray("loans");
             if (loans.length() == 0) {
 
-              httpClient.delete(9130, "localhost", "/apis/patrons/" + patronId, response -> {
+              httpClient.delete(dataApiPort, dataApiServer, patronApi + patronId, response -> {
                 if (response.statusCode() == 204) {
                   routingContext.response().setStatusCode(204)
-                      .putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end("Patron deleted");
+                      .putHeader(HttpHeaders.CONTENT_TYPE, "text/plain").end("Patron deleted");
                 } else {
                   routingContext.response().setStatusCode(500)
-                      .putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+                      .putHeader(HttpHeaders.CONTENT_TYPE, "text/plain")
                       .end("Error deleting patron");
                 }
               }).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
@@ -474,12 +473,12 @@ public class MainVerticle extends AbstractVerticle {
   private void deleteItem(RoutingContext routingContext) {
     String itemId = routingContext.getBodyAsString();
     HttpClient httpClient = vertx.createHttpClient();
-    httpClient.delete(9130, "localhost", "/apis/items/" + itemId, response -> {
+    httpClient.delete(dataApiPort, dataApiServer, itemApi + itemId, response -> {
       if (response.statusCode() == 204) {
-        routingContext.response().setStatusCode(204).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(204).putHeader(HttpHeaders.CONTENT_TYPE, "application/json")
             .end("Item deleted");
       } else {
-        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "text/html")
+        routingContext.response().setStatusCode(500).putHeader(HttpHeaders.CONTENT_TYPE, "application/json")
             .end("Error deleting item");
       }
     }).putHeader("content-type", "application/json").putHeader("accept", "text/plain")
