@@ -117,7 +117,7 @@ public class MainVerticle extends AbstractVerticle {
       if (response.statusCode() == 200) {
         response.bodyHandler(buffer -> {
           patron = Json.decodeValue(buffer.toString(), Patron.class);
-          logger.info("Found patron: " + patron.getPatronName() + " with id " + patronId);
+          logger.info("Found patron with id " + patronId);
           retrieveItem(routingContext);
         });
       } else {
@@ -315,7 +315,7 @@ public class MainVerticle extends AbstractVerticle {
       if (response.statusCode() == 200) {
         response.bodyHandler(buffer -> {
           patron = Json.decodeValue(buffer.toString(), Patron.class);
-          logger.info("Found patron: " + patron.getPatronName() + " with id " + patronId);
+          logger.info("Found patron with id " + patronId);
           retrieveLoanForRenewal(routingContext);
         });
       } else {

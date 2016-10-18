@@ -3,13 +3,13 @@
 # Deployment
 curl -w '\n' -X POST -D - \
   -H "Content-type: application/json" \
-  -d @lsp-module-deploy.json  \
+  -d @circ-module-deploy.json  \
   http://localhost:9130/_/deployment/modules
 
 # Proxy
 curl -w '\n' -X POST -D -   \
     -H "Content-type: application/json"   \
-    -d @lsp-module-proxy.json \
+    -d @circ-module-proxy.json \
    http://localhost:9130/_/proxy/modules
 
 # Enable module for tenant hbz (make sure it exists)
