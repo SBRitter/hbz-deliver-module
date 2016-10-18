@@ -92,8 +92,10 @@ curl -XGET http://localhost:9130/apis/items \
 ## Testing
 
 You can run the tests using the following steps:
-* Run the lsp-apis-impl circulation module with an embedded MongoDB on port 8081 (`java -jar circulation-fat.jar`), i.e. stand-alone without Okapi
-* Run the tests of the hbz deliver module: `mvn clean verify`
-* Stop the lsp-apis-impl circulation module (Ctrl+C)
+* Run the circulation module with an embedded MongoDB on port 8081 (`java -jar circulation-fat.jar embed_mongo=true`), i.e. stand-alone without Okapi
+* Build the deliver module: `mvn package -DskipTests`
+* Run the deliver module: `java -jar target/hbz-deliver-module-fat.jar`
+* Open a browser with `http://localhost:8080/deliver/loan`
+* After testing stop the modules (Ctrl+C)
 
 (Automatic start and stop of the circulation is planned)
