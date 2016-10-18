@@ -1,29 +1,26 @@
 #!/bin/bash
 
-# Deployment
+echo -- Deployment
 curl -w '\n' -X POST -D - \
   -H "Content-type: application/json" \
   -d @deliver-module-deploy.json  \
   http://localhost:9130/_/deployment/modules
 
-# Proxy
+echo -- Proxy
 curl -w '\n' -X POST -D -   \
     -H "Content-type: application/json"   \
     -d @deliver-module-proxy.json \
    http://localhost:9130/_/proxy/modules
 
-# Create tenant
+echo -- Create tenant
 curl -w '\n' -X POST -D - \
   -H "Content-type: application/json" \
   -d '{  "id" : "hbz", "name" : "hbz",  "description" : "Hochschulbibliothekszentrum" }' \
   http://localhost:9130/_/proxy/tenants
 
-# Enable module for tenant
+echo -- Enable module for tenant
 curl -w '\n' -X POST -D - \
   -H "Content-type: application/json" \
   -d '{ "id" : "hbz-deliver-module" }' \
   http://localhost:9130/_/proxy/tenants/hbz/modules
-
-
-
 
