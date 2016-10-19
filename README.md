@@ -60,7 +60,7 @@ Make sure you are in the directory of the hbz-deliver-module. Run the deploy scr
 
 ## Create demo data
 
-Use http://localhost:9130/sampleData to create sample patrons and items to play around with.
+Open http://localhost:9130/deliver/sampleData in your browser to create sample patrons and items to play around with.
 
 ### Loan item
 * Open browser an go to `http://localhost:9130/deliver/loan`
@@ -68,7 +68,7 @@ Use http://localhost:9130/sampleData to create sample patrons and items to play 
 * If you don't know them, run the following to get them: 
 
 ```
-curl -XGET http://localhost:9130/apis/patrons \
+curl -XGET http://localhost:9130/patrons \
 -H "Accept: application/json" \
 -H "Authorization: Bearer a2VybWl0Omtlcm1pdA==" \
 -H "X-Okapi-Tenant: hbz"
@@ -77,7 +77,7 @@ curl -XGET http://localhost:9130/apis/patrons \
 and
 
 ```
-curl -XGET http://localhost:9130/apis/items \
+curl -XGET http://localhost:9130/items \
 -H "Accept: application/json" \
 -H "Authorization: Bearer a2VybWl0Omtlcm1pdA==" \
 -H "X-Okapi-Tenant: hbz"
