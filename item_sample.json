@@ -1,6 +1,5 @@
 {
-  "_id": "78945612",
-  "barcode": "39031031697846",
+  "barcode": "YYY39031031697261",
   "location": {
     "value": "STACK",
     "desc": "Stacks (STACK)"
@@ -12,7 +11,7 @@
   "material_type": {
     "value": "BOOK",
     "desc": "Book",
-    "icon": "book.png"
+    "icon": "book.jpg"
   },
   "shelf_location": {
     "classification_number": "1234567890",
@@ -23,4 +22,3 @@
   "bib_id": "99100383909999",
   "library_id" : "88"
 }
-
