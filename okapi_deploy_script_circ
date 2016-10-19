@@ -1,25 +1,25 @@
 #!/bin/bash
 
-# Deployment
-curl -w '\n' -X POST -D - \
+echo == Deployment
+curl -w '\n' -X POST --connect-timeout 2 -D - \
   -H "Content-type: application/json" \
-  -d @circ-module-deploy.json  \
-  http://localhost:9130/_/deployment/modules
+  -d @circ-module-deploy.json \
+  http://localhost:9130/_/deployment/modules         || exit
 
-# Proxy
-curl -w '\n' -X POST -D -   \
+echo == Proxy
+curl -w '\n' -X POST --connect-timeout 2 -D -   \
     -H "Content-type: application/json"   \
     -d @circ-module-proxy.json \
-   http://localhost:9130/_/proxy/modules
+   http://localhost:9130/_/proxy/modules             || exit
 
-# Enable module for tenant hbz (make sure it exists)
+echo "== Enable module for tenant hbz (make sure it exists)"
 cat > /tmp/enabletenant1.json <<END
 {
   "id" : "circulation"
 }
 END
 
-curl -w '\n' -X POST -D - \
+curl -w '\n' -X POST --connect-timeout 2 -D - \
   -H "Content-type: application/json" \
   -d @/tmp/enabletenant1.json  \
-  http://localhost:9130/_/proxy/tenants/hbz/modules
+  http://localhost:9130/_/proxy/tenants/hbz/modules  || exit
